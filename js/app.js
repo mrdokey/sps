@@ -12,14 +12,13 @@ const VALID_USERNAME = "SpsBir0Jasa";
 const VALID_PASSWORD = "Sukses123#";
 
 // =======================================================
-// 🔗 EJS-STYLE PARSER DENGAN CACHE-BUSTER (ANTI-CACHE)
+// 🔗 EJS-STYLE PARSER: INJEKSI KOMPONEN SISA
 // =======================================================
 async function includeHTML() {
     const elements = document.querySelectorAll('[data-include]');
     for (const el of elements) {
         const file = el.getAttribute('data-include');
         try {
-            // Trik ?v=timestamp memaksa browser selalu mengambil file HTML versi terbaru!
             const cacheBuster = `?v=${Date.now()}`;
             const response = await fetch(file + cacheBuster);
             if (response.ok) {
@@ -152,7 +151,7 @@ function toggleSidebar() {
 
 // Inisialisasi Utama
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Injeksi anak index
+    // 1. Injeksi komponen sisa
     await includeHTML();
 
     // 2. Cek status otentikasi login
