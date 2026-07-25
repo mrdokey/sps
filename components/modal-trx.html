@@ -1,0 +1,99 @@
+<div id="modal-trx" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-4 border-b pb-3">
+            <h3 id="modal-trx-title" class="text-lg font-bold text-gray-800">Tambah Transaksi Baru</h3>
+            <button id="btn-close-modal-trx" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        
+        <form id="form-trx" class="space-y-3">
+            <input type="hidden" id="trx-id">
+            
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Klien / Pelanggan *</label>
+                <input type="text" id="trx-nama" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Nomor WhatsApp *</label>
+                <input type="tel" id="trx-wa" placeholder="08123456789" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Jenis Layanan *</label>
+                <select id="trx-layanan" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                    <option value="SAMSAT">SAMSAT JAWA - BALI</option>
+                    <option value="SIM">SIM</option>
+                    <option value="BALIK NAMA">BALIK NAMA</option>
+                    <option value="SLF">SLF (Sertifikat Laik Fungsi)</option>
+                    <option value="MUTASI">MUTASI</option>
+                    <option value="KIR">KIR</option>
+                    <option value="LAIN-LAIN">LAIN-LAIN</option>
+                </select>
+            </div>
+
+            <!-- DYNAMIC FIELD 1: Kendaraan -->
+            <div id="field-kendaraan" class="p-3 bg-gray-50 rounded-xl space-y-2 border border-gray-100">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Plat Nomor / No. Polisi</label>
+                    <input type="text" id="trx-plat" placeholder="DK 1234 AB" class="w-full px-3 py-2 border rounded-xl text-sm uppercase">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Merek / Tipe Motor</label>
+                    <input type="text" id="trx-unit" placeholder="Honda Vario 150 / Yamaha NMAX" class="w-full px-3 py-2 border rounded-xl text-sm">
+                </div>
+            </div>
+
+            <!-- DYNAMIC FIELD 2: SLF -->
+            <div id="field-slf" class="p-3 bg-gray-50 rounded-xl space-y-2 border border-gray-100 hidden">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama / Alamat Bangunan</label>
+                    <input type="text" id="trx-bangunan" placeholder="Ruko / Gedung Pemuda No. 10" class="w-full px-3 py-2 border rounded-xl text-sm">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Masuk</label>
+                    <input type="date" id="trx-tgl-masuk" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Jatuh Tempo</label>
+                    <input type="date" id="trx-tgl-tempo" class="w-full px-3 py-2 border rounded-xl text-sm">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Total Biaya (Rp)</label>
+                    <input type="number" id="trx-total" placeholder="1000000" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Sudah Dibayar (Rp)</label>
+                    <input type="number" id="trx-bayar" placeholder="500000" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Status Bayar</label>
+                    <select id="trx-status-bayar" class="w-full px-3 py-2 border rounded-xl text-sm">
+                        <option value="BELUM BAYAR">BELUM BAYAR</option>
+                        <option value="DP">DP (Uang Muka)</option>
+                        <option value="LUNAS">LUNAS</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Status Berkas</label>
+                    <select id="trx-status-berkas" class="w-full px-3 py-2 border rounded-xl text-sm">
+                        <option value="PENDING">PENDING</option>
+                        <option value="PROSES">PROSES</option>
+                        <option value="SELESAI">SELESAI</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-3 flex justify-end gap-2 border-t mt-4">
+                <button type="button" id="btn-cancel-trx" class="px-4 py-2 border rounded-xl text-sm font-medium text-gray-600">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-medium shadow">Simpan Data</button>
+            </div>
+        </form>
+    </div>
+</div>

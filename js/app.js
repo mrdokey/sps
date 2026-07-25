@@ -1,4 +1,3 @@
-import { db } from './firebase.js';
 import { initKlienController } from './controllers/klien.js';
 import { initSetelanController } from './controllers/setelan.js';
 import { initTransaksiController } from './controllers/transaksi.js';
@@ -6,11 +5,31 @@ import { initDashboardController } from './controllers/dashboard.js';
 
 export let isSidebarCollapsed = false;
 
-// Kredensial Tunggal Owner Terkunci
-const TARGET_PHONE_WA = "62895428400665"; // Sesuai permintaan Anda (+62 852-3704-4224)
+// Kredensial Tunggal Owner Terkunci (Sesuai Permintaan Anda)
+const TARGET_PHONE_WA = "62895428400665"; 
 const WA_API_SEND = "https://wa.mrdsolution.my.id/api/send-message";
 const WA_API_KEY = "7BC82018076500360255A4E0F78D52C7";
-const SENDER_SESSION = "botmrd"; // Dikirim oleh botmrd
+const SENDER_SESSION = "botmrd"; 
+
+// =======================================================
+// 🔗 EJS-STYLE PARSER: FUNGSI INJEKSI ANAK INDEX AUTOMATIC
+// =======================================================
+async function includeHTML() {
+    const elements = document.querySelectorAll('[data-include]');
+    for (const el of elements) {
+        const file = el.getAttribute('data-include');
+        try {
+            const response = await fetch(file);
+            if (response.ok) {
+                const htmlContent = await response.text();
+                // Gantikan tag penanda dengan isi file HTML anak index
+                el.outerHTML = htmlContent;
+            }
+        } catch (err) {
+            console.error("Gagal memuat komponen anak index:", file, err.message);
+        }
+    }
+}
 
 // --- LOGIKA UTAMA OTENTIKASI OTP ---
 function checkAuth() {
@@ -27,33 +46,28 @@ function checkAuth() {
     }
 }
 
-// Request kode OTP Baru ke nomor target
 async function handleRequestOTP() {
     const btn = document.getElementById('btn-request-otp');
     btn.disabled = true;
     btn.innerText = "Mengirim...";
 
-    // Generate 6 digit nomor acak
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 300000; // Aktif 5 menit
 
     try {
-        // 1. Simpan kode OTP ke Firestore secara aman
         await db.collection('login_otp').doc('sps_owner').set({
             code: generatedOtp,
             expiresAt: expiresAt
         });
 
-        // 2. Kirim pesan OTP via botmrd WA Gateway
         const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda adalah: *${generatedOtp}*\n\n_Kode ini berlaku selama 5 menit. Jangan bagikan kepada siapa pun demi keamanan data._`;
         const endpoint = `${WA_API_SEND}?key=${WA_API_KEY}&session=${SENDER_SESSION}&to=${TARGET_PHONE_WA}&text=${encodeURIComponent(messageText)}`;
         
         await fetch(endpoint);
 
-        // 3. Ubah UI ke tampilan verifikasi
         document.getElementById('area-request-otp').classList.add('hidden');
         document.getElementById('area-verify-otp').classList.remove('hidden');
-        startOtpTimer(300); // 5 Menit hitung mundur
+        startOtpTimer(300);
     } catch (err) {
         alert("Gagal memproses OTP: " + err.message);
         btn.disabled = false;
@@ -61,7 +75,6 @@ async function handleRequestOTP() {
     }
 }
 
-// Verifikasi kode OTP dari user
 async function handleVerifyOTP() {
     const inputOtp = document.getElementById('input-otp').value.trim();
     if (!inputOtp) return alert("Silakan masukkan kode OTP!");
@@ -73,7 +86,6 @@ async function handleVerifyOTP() {
             const currentTime = Date.now();
 
             if (data.code === inputOtp && currentTime < data.expiresAt) {
-                // Berhasil Login!
                 localStorage.setItem('sps_logged_in', 'true');
                 checkAuth();
             } else {
@@ -87,7 +99,6 @@ async function handleVerifyOTP() {
     }
 }
 
-// Handler hitung mundur timer OTP
 let timerInterval;
 function startOtpTimer(duration) {
     let timer = duration, minutes, seconds;
@@ -105,7 +116,6 @@ function startOtpTimer(duration) {
 
         if (--timer < 0) {
             clearInterval(timerInterval);
-            // Kembalikan form jika waktu habis
             document.getElementById('area-request-otp').classList.remove('hidden');
             document.getElementById('area-verify-otp').classList.add('hidden');
             document.getElementById('btn-request-otp').disabled = false;
@@ -114,12 +124,10 @@ function startOtpTimer(duration) {
     }, 1000);
 }
 
-// Logika logout aplikasi
 function handleLogout() {
     if (confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
         localStorage.removeItem('sps_logged_in');
         checkAuth();
-        // Kembalikan form login ke default
         document.getElementById('area-request-otp').classList.remove('hidden');
         document.getElementById('area-verify-otp').classList.add('hidden');
         document.getElementById('btn-request-otp').disabled = false;
@@ -175,26 +183,29 @@ function toggleSidebar() {
     }
 }
 
-// Inisialisasi Event Listener
-document.addEventListener('DOMContentLoaded', () => {
-    // 1. Jalankan pengecekan otentikasi login
+// Inisialisasi Event Listener Utama (Setelah Seluruh Anak Index Selesai Di-Inject)
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Eksekusi penyatuan file anak index (EJS-Style)
+    await includeHTML();
+
+    // 2. Jalankan pengecekan otentikasi login
     checkAuth();
 
-    // 2. Hubungkan tombol otentikasi OTP
+    // 3. Hubungkan tombol otentikasi OTP
     document.getElementById('btn-request-otp')?.addEventListener('click', handleRequestOTP);
     document.getElementById('btn-verify-otp')?.addEventListener('click', handleVerifyOTP);
 
-    // 3. Hubungkan tombol logout
+    // 4. Hubungkan tombol logout
     document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
     document.getElementById('btn-logout-mobile')?.addEventListener('click', handleLogout);
 
-    // 4. Inisialisasi Seluruh Controller Dinamis
+    // 5. Inisialisasi Seluruh Controller Dinamis
     initDashboardController();
     initTransaksiController();
     initKlienController();
     initSetelanController();
 
-    // 5. Pasang Navigasi Event Listener
+    // 6. Pasang Navigasi Event Listener
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.getAttribute('data-page')));
     });
