@@ -1,7 +1,3 @@
-// Memuat SDK Firebase secara eksternal (menggunakan versi Compat agar mudah diatur)
-import "https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js";
-import "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js";
-
 // Konfigurasi Project Firestore Anda
 const firebaseConfig = {
   apiKey: "AIzaSyCDLuOEAGJRz4cfl8rn5JDrQOCehYE5SJg",
