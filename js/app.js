@@ -64,6 +64,48 @@ function checkAuth() {
     }
 }
 
+// 🔑 FUNGSI YANG SEBELUMNYA HILANG: REQUEST KODE OTP BARU
+async function handleRequestOTP(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    const btn = document.getElementById('btn-request-otp');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Mengirim...";
+    }
+
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 300000; // Aktif 5 menit
+
+    try {
+        // 1. Simpan OTP baru ke Firestore
+        await db.collection('login_otp').doc('sps_owner').set({
+            code: generatedOtp,
+            expiresAt: expiresAt
+        });
+
+        // 2. Kirim pesan OTP via botmrd WA Gateway
+        const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda adalah: *${generatedOtp}*\n\n_Kode ini berlaku selama 5 menit. Jangan bagikan kepada siapa pun demi keamanan data._`;
+        const endpoint = `${WA_API_SEND}?key=${WA_API_KEY}&session=${SENDER_SESSION}&to=${TARGET_PHONE_WA}&text=${encodeURIComponent(messageText)}`;
+        
+        await fetch(endpoint);
+
+        // 3. Buka tampilan input OTP
+        document.getElementById('area-request-otp')?.classList.add('hidden');
+        document.getElementById('area-verify-otp')?.classList.remove('hidden');
+        startOtpTimer(300);
+    } catch (err) {
+        alert("Gagal memproses OTP: " + err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
+    }
+}
+
 async function handleVerifyOTP(e) {
     if (e) {
         e.preventDefault();
@@ -92,8 +134,9 @@ async function handleVerifyOTP(e) {
                 try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
                 try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
 
-                // Sembunyikan layar login SECARA INSTAN tanpa alert pemblokir
+                // Tampilkan Dashboard & pindah ke halaman utama
                 checkAuth();
+                switchPage('dashboard');
             } else {
                 if (currentTime >= data.expiresAt) {
                     alert("❌ Kode OTP sudah kedaluwarsa! Silakan minta kode baru.");
@@ -141,6 +184,7 @@ function handleLogout() {
     if (confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
         isUserLoggedIn = false;
         try { localStorage.removeItem('sps_logged_in'); } catch(e) {}
+        try { sessionStorage.removeItem('sps_logged_in'); } catch(e) {}
         checkAuth();
         document.getElementById('area-request-otp')?.classList.remove('hidden');
         document.getElementById('area-verify-otp')?.classList.add('hidden');
