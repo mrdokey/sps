@@ -8,8 +8,12 @@ import { initKeuanganController } from './controllers/keuangan.js';
 export let isSidebarCollapsed = false;
 let isUserLoggedIn = false;
 
+// Kredensial Hardcoded Bypass Login
 const VALID_USERNAME = "SpsBir0Jasa";
 const VALID_PASSWORD = "Sukses123#";
+
+// VAPID Public Key Web Push Anda
+const VAPID_PUBLIC_KEY = "BDHfqsMB-LXzpqeAdSasAmCZggCw4a0mHG0AVTayWbuUn3Hh11YOGeeGjtBC1mAvStBpyHGiEU-Kum8Hk5JNZKM";
 
 // =======================================================
 // 🛡️ CUSTOM DIALOG MODAL (TANPA TULISAN URL BROWSER)
@@ -79,6 +83,37 @@ window.closeCustomDialog = function() {
 };
 
 // =======================================================
+// 📲 INISIALISASI FCM PUSH NOTIFICATION (WEB PUSH WORKER)
+// =======================================================
+async function initFCM() {
+    try {
+        if ('serviceWorker' in navigator && window.firebase && window.firebase.messaging) {
+            // Registrasi Service Worker latar belakang
+            await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+            
+            const messaging = window.firebase.messaging();
+            
+            // Minta izin notifikasi HP
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                const token = await messaging.getToken({ vapidKey: VAPID_PUBLIC_KEY });
+
+                if (token) {
+                    // Simpan token HP Owner ke Firestore agar VPS bisa memicu push notification
+                    await db.collection('admin_tokens').doc('owner').set({
+                        fcm_token: token,
+                        updatedAt: new Date().toISOString()
+                    });
+                    console.log("✅ FCM Token HP Owner berhasil terdaftar di Firestore!");
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("FCM tidak aktif atau belum diizinkan:", e.message);
+    }
+}
+
+// =======================================================
 // 🔗 EJS-STYLE PARSER: INJEKSI KOMPONEN DENGAN ANTI-CACHE
 // =======================================================
 async function includeHTML() {
@@ -98,6 +133,7 @@ async function includeHTML() {
     }
 }
 
+// --- LOGIKA UTAMA OTENTIKASI STATUS ---
 function checkAuth() {
     let storageLogged = false;
     try {
@@ -129,6 +165,7 @@ function checkAuth() {
     }
 }
 
+// FUNGSI VERIFIKASI USERNAME & PASSWORD
 function handleLogin(e) {
     if (e) {
         e.preventDefault();
@@ -167,6 +204,7 @@ function handleLogout() {
     });
 }
 
+// --- LOGIKA NAVIGASI PAGE ---
 export function switchPage(pageId) {
     document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
     const targetPage = document.getElementById(`page-${pageId}`);
@@ -213,23 +251,33 @@ function toggleSidebar() {
     }
 }
 
+// Inisialisasi Utama
 document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Injeksi komponen sisa
     await includeHTML();
 
+    // 2. Cek status otentikasi login
     checkAuth();
 
+    // 3. Panggil Inisialisasi FCM Notifikasi HP
+    initFCM();
+
+    // 4. Hubungkan event listener login
     document.getElementById('btn-login')?.addEventListener('click', handleLogin);
     document.getElementById('form-login')?.addEventListener('submit', handleLogin);
 
+    // 5. Hubungkan tombol logout
     document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
     document.getElementById('btn-logout-mobile')?.addEventListener('click', handleLogout);
 
+    // 6. Inisialisasi Seluruh Controller
     initDashboardController();
     initTransaksiController();
-    initKeuanganController(); // Inisialisasi Controller Keuangan
+    initKeuanganController();
     initKlienController();
     initSetelanController();
 
+    // 7. Pasang Navigasi Event Listener
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.getAttribute('data-page')));
     });
@@ -241,5 +289,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnToggle = document.getElementById('btn-toggle-sidebar');
     if (btnToggle) btnToggle.addEventListener('click', toggleSidebar);
 
+    // Halaman awal
     switchPage('dashboard');
 });
