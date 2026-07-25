@@ -14,7 +14,7 @@
 </head>
 <body class="bg-slate-50 font-sans text-gray-800">
 
-    <!-- ================= LAYAR LOGIN USERNAME & PASSWORD (DIRECT IN INDEX.HTML) ================= -->
+    <!-- ================= LAYAR LOGIN USERNAME & PASSWORD ================= -->
     <div id="login-screen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6">
             <div class="space-y-2">
@@ -42,7 +42,7 @@
     <!-- Interface Utama Sistem -->
     <div id="app-layout" class="flex h-screen overflow-hidden hidden">
 
-        <!-- 2. Anak Index: Desktop Sidebar -->
+        <!-- 1. Anak Index: Desktop Sidebar -->
         <div data-include="./components/sidebar.html" class="h-full"></div>
 
         <!-- Main Content Container -->
@@ -138,15 +138,15 @@
             </main>
         </div>
 
-        <!-- 3. Anak Index: Mobile Bottom Navigation -->
+        <!-- 2. Anak Index: Mobile Bottom Navigation -->
         <div data-include="./components/mobile-nav.html"></div>
 
     </div>
 
-    <!-- 4. Anak Index: Modal Form Transaksi -->
+    <!-- 3. Anak Index: Modal Form Transaksi -->
     <div data-include="./components/modal-trx.html"></div>
 
-    <!-- 5. Anak Index: Modal Form Klien -->
+    <!-- 4. Anak Index: Modal Form Klien -->
     <div data-include="./components/modal-klien.html"></div>
 
     <!-- ================= FIREBASE SDK (COMPAT VERSION) ================= -->

@@ -7,12 +7,12 @@ import { initDashboardController } from './controllers/dashboard.js';
 export let isSidebarCollapsed = false;
 let isUserLoggedIn = false;
 
-// KREDENSIAL HARCODED UNTUK BYPASS
+// KREDENSIAL PASSSWORD HARCODED
 const VALID_USERNAME = "SpsBir0Jasa";
 const VALID_PASSWORD = "Sukses123#";
 
 // =======================================================
-// 🔗 EJS-STYLE PARSER: INJEKSI KOMPONEN SISA
+// 🔗 EJS-STYLE PARSER: INJEKSI KOMPONEN DENGAN ANTI-CACHE
 // =======================================================
 async function includeHTML() {
     const elements = document.querySelectorAll('[data-include]');
