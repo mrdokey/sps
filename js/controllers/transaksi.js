@@ -1,16 +1,17 @@
 import { db } from '../firebase.js';
 
 let listTransaksi = [];
-
-// Elements
-const containerTrx = document.getElementById('container-transaksi');
-const formTrx = document.getElementById('form-trx');
-const modalTrx = document.getElementById('modal-trx');
-const selectLayanan = document.getElementById('trx-layanan');
-const fieldKendaraan = document.getElementById('field-kendaraan');
-const fieldSlf = document.getElementById('field-slf');
+let containerTrx, formTrx, modalTrx, selectLayanan, fieldKendaraan, fieldSlf;
 
 export function initTransaksiController() {
+    // Mengambil elemen setelah HTML anak index selesai di-inject
+    containerTrx = document.getElementById('container-transaksi');
+    formTrx = document.getElementById('form-trx');
+    modalTrx = document.getElementById('modal-trx');
+    selectLayanan = document.getElementById('trx-layanan');
+    fieldKendaraan = document.getElementById('field-kendaraan');
+    fieldSlf = document.getElementById('field-slf');
+
     // Modal Buka-Tutup
     document.getElementById('btn-open-add-trx')?.addEventListener('click', () => openModal());
     document.getElementById('btn-close-modal-trx')?.addEventListener('click', closeModal);
@@ -36,7 +37,7 @@ export function initTransaksiController() {
 }
 
 function handleLayananUiChange() {
-    const layanan = selectLayanan.value;
+    const layanan = selectLayanan ? selectLayanan.value : '';
     if (layanan === 'SLF') {
         fieldKendaraan?.classList.add('hidden');
         fieldSlf?.classList.remove('hidden');
@@ -59,6 +60,7 @@ function openModal(data = null) {
         document.getElementById('trx-wa').value = data.wa;
         document.getElementById('trx-layanan').value = data.layanan;
         document.getElementById('trx-plat').value = data.plat || '';
+        document.getElementById('trx-unit').value = data.unit || ''; // Tipe motor
         document.getElementById('trx-bangunan').value = data.bangunan || '';
         document.getElementById('trx-tgl-masuk').value = data.tgl_masuk || '';
         document.getElementById('trx-tgl-tempo').value = data.tgl_tempo || '';
@@ -77,11 +79,16 @@ function closeModal() { modalTrx?.classList.add('hidden'); }
 async function saveTransaksi(e) {
     e.preventDefault();
     const id = document.getElementById('trx-id').value;
+    const nama = document.getElementById('trx-nama').value;
+    const wa = document.getElementById('trx-wa').value;
+    const unit = document.getElementById('trx-unit').value;
+
     const payload = {
-        nama: document.getElementById('trx-nama').value,
-        wa: document.getElementById('trx-wa').value,
+        nama: nama,
+        wa: wa,
         layanan: document.getElementById('trx-layanan').value,
         plat: document.getElementById('trx-plat').value,
+        unit: unit, // Merek motor
         bangunan: document.getElementById('trx-bangunan').value,
         tgl_masuk: document.getElementById('trx-tgl-masuk').value,
         tgl_tempo: document.getElementById('trx-tgl-tempo').value,
@@ -92,11 +99,24 @@ async function saveTransaksi(e) {
     };
 
     try {
+        // Simpan transaksi
         if (id) {
             await db.collection('transaksi').doc(id).update(payload);
         } else {
             await db.collection('transaksi').add(payload);
         }
+
+        // Otomatis simpan sebagai klien baru jika belum terdaftar
+        const clientQuery = await db.collection('klien').where('wa', '==', wa).get();
+        if (clientQuery.empty) {
+            await db.collection('klien').add({
+                nama: nama,
+                wa: wa,
+                alamat: '-'
+            });
+            console.log(`[AUTO-SAVE] Klien ${nama} otomatis didaftarkan.`);
+        }
+
         closeModal();
     } catch (err) {
         alert("Gagal menyimpan data: " + err.message);
@@ -107,6 +127,7 @@ function renderTransaksiList(data) {
     let html = '';
     data.forEach(t => {
         const detailInfo = t.layanan === 'SLF' ? (t.bangunan || '-') : (t.plat || '-');
+        const unitText = t.unit ? ` (${t.unit})` : '';
         const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
         const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
 
@@ -118,7 +139,7 @@ function renderTransaksiList(data) {
                         <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBerkas}">${t.status_berkas}</span>
                     </div>
                     <h3 class="font-bold text-gray-800 text-base mt-1">${t.nama}</h3>
-                    <p class="text-xs text-orange-600 font-semibold mt-0.5">${t.layanan} • ${detailInfo}</p>
+                    <p class="text-xs text-orange-600 font-semibold mt-0.5">${t.layanan} • ${detailInfo}${unitText}</p>
                     <p class="text-xs text-gray-400 mt-1"><i class="fa-solid fa-calendar mr-1"></i>Masuk: ${t.tgl_masuk}</p>
                     
                     <div class="mt-4 pt-3 border-t text-xs space-y-1">
@@ -165,7 +186,6 @@ function resetFilter() {
     renderTransaksiList(listTransaksi);
 }
 
-// Global scope binders
 window.editTransaksi = function(data) { openModal(data); }
 
 window.deleteTransaksi = async function(id) {
@@ -176,11 +196,10 @@ window.deleteTransaksi = async function(id) {
     }
 }
 
-// Generator Cetak PDF Tanda Terima murni via Browser (Bebas Lib Gemuk, responsive, auto PDF printer di mobile/PC)
 window.printInvoice = function(t) {
     const printWindow = window.open('', '_blank');
     const sisa = t.total - t.bayar;
-    const detail = t.layanan === 'SLF' ? `Bangunan: ${t.bangunan}` : `Plat Kendaraan: ${t.plat}`;
+    const detail = t.layanan === 'SLF' ? `Bangunan: ${t.bangunan}` : `Plat Kendaraan: ${t.plat} ${t.unit ? `(${t.unit})` : ''}`;
 
     printWindow.document.write(`
         <html>

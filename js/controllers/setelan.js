@@ -1,16 +1,15 @@
 import { db } from '../firebase.js';
 import { requestWAPairing } from '../utils/wa.js';
 
-const formConfig = document.getElementById('form-config');
+let formConfig;
 export let configGlobal = {};
 
 export function initSetelanController() {
+    formConfig = document.getElementById('form-config');
     formConfig?.addEventListener('submit', saveConfig);
 
-    // Tambahkan area form pairing baru di tab setelan saat DOM siap
     appendPairingSection();
 
-    // Listener Real-time data konfigurasi usaha
     db.collection('konfigurasi').doc('profile').onSnapshot(doc => {
         if (doc.exists) {
             configGlobal = doc.data();
@@ -39,7 +38,6 @@ async function saveConfig(e) {
     }
 }
 
-// Injeksi Tampilan Form Pairing Perangkat Baru di Halaman Setelan
 function appendPairingSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;

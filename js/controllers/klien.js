@@ -1,21 +1,18 @@
 import { db } from '../firebase.js';
 
-// Elements
-const containerKlien = document.getElementById('container-klien');
-const formKlien = document.getElementById('form-klien');
-const modalKlien = document.getElementById('modal-klien');
+let containerKlien, formKlien, modalKlien;
 
-// Inisialisasi Event Listener
 export function initKlienController() {
-    // Tombol buka modal tambah klien
+    containerKlien = document.getElementById('container-klien');
+    formKlien = document.getElementById('form-klien');
+    modalKlien = document.getElementById('modal-klien');
+
     document.getElementById('btn-open-add-klien')?.addEventListener('click', openModal);
     document.getElementById('btn-close-modal-klien')?.addEventListener('click', closeModal);
     document.getElementById('btn-cancel-klien')?.addEventListener('click', closeModal);
 
-    // Form submit
     formKlien?.addEventListener('submit', saveKlien);
 
-    // Listener Real-time data dari Firestore
     db.collection('klien').orderBy('nama', 'asc').onSnapshot(snapshot => {
         let html = '';
         snapshot.forEach(doc => {
@@ -66,7 +63,6 @@ async function saveKlien(e) {
     }
 }
 
-// Global scope binder agar onclick di HTML bisa mendeteksi fungsi hapus
 window.deleteKlien = async function(id) {
     if (confirm("Apakah Anda yakin ingin menghapus pelanggan tetap ini?")) {
         try {
