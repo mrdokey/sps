@@ -14,38 +14,43 @@
 </head>
 <body class="bg-slate-50 font-sans text-gray-800">
 
-    <!-- ================= LAYAR LOGIN OTP WHATSAPP ================= -->
+    <!-- ================= CUSTOM ALERT & CONFIRM DIALOG (TANPA URL BROWSER) ================= -->
+    <div id="custom-dialog-modal" class="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4 border border-gray-100">
+            <div id="dialog-icon-box" class="w-12 h-12 rounded-2xl mx-auto flex items-center justify-center text-xl bg-orange-50 text-orange-600">
+                <i id="dialog-icon" class="fa-solid fa-circle-info"></i>
+            </div>
+            <div>
+                <h3 id="dialog-title" class="font-bold text-gray-800 text-lg">Pemberitahuan</h3>
+                <p id="dialog-message" class="text-xs text-gray-500 mt-1 leading-relaxed"></p>
+            </div>
+            <div id="dialog-buttons" class="flex gap-2 pt-2 border-t justify-center">
+                <!-- Tombol dimasukkan secara dinamis via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= LAYAR LOGIN USERNAME & PASSWORD ================= -->
     <div id="login-screen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-6">
             <div class="space-y-2">
                 <h1 class="text-2xl font-black text-slate-950 tracking-wide">BIRO JASA SPS</h1>
-                <p class="text-xs text-gray-400">Verifikasi Keamanan Akses Owner</p>
-            </div>
-            
-            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-left space-y-1">
-                <span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Nomor Tujuan OTP</span>
-                <p class="text-sm font-bold text-slate-800">+62 895-4284-00665</p>
-                <p class="text-[10px] text-gray-400">Pesan OTP akan dikirim murni lewat server WhatsApp botmrd Anda.</p>
+                <p class="text-xs text-gray-400">Masuk ke Sistem Internal Owner</p>
             </div>
 
-            <!-- PROTEKSI ANTI-RELOAD (onsubmit="return false;") -->
-            <form id="form-login-otp" onsubmit="return false;" class="space-y-4">
-                <div id="area-request-otp">
-                    <button type="button" id="btn-request-otp" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-2xl transition shadow-md">
-                        Minta Kode OTP
-                    </button>
+            <form id="form-login" onsubmit="return false;" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Username *</label>
+                    <input type="text" id="login-username" placeholder="Masukkan username" autocomplete="off" class="w-full px-4 py-3 border rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Password *</label>
+                    <input type="password" id="login-password" placeholder="••••••••" autocomplete="off" class="w-full px-4 py-3 border rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
                 </div>
 
-                <div id="area-verify-otp" class="space-y-4 hidden">
-                    <div class="space-y-1">
-                        <label class="block text-xs font-semibold text-gray-500 text-left">Masukkan 6 Digit Kode OTP *</label>
-                        <input type="text" id="input-otp" placeholder="******" maxlength="6" autocomplete="off" class="w-full text-center tracking-widest text-xl font-bold px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-orange-500 focus:outline-none">
-                    </div>
-                    <button type="button" id="btn-verify-otp" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-2xl transition">
-                        Verifikasi Kode
-                    </button>
-                    <p id="otp-timer" class="text-xs text-rose-500 italic font-medium"></p>
-                </div>
+                <button type="button" id="btn-login" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-2xl transition shadow-md mt-2">
+                    Masuk Sekarang
+                </button>
             </form>
         </div>
     </div>
@@ -74,7 +79,6 @@
                     <h1 class="text-2xl font-bold text-gray-900 mb-2">Dashboard Utama</h1>
                     <p class="text-gray-500 text-sm mb-6">Ringkasan aktivitas operasional Biro Jasa SPS.</p>
 
-                    <!-- Widget Stats -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
                             <div><p class="text-xs text-gray-400 font-semibold uppercase">Total Order</p><h3 id="stat-total-trx" class="text-2xl font-bold text-gray-800 mt-1">0</h3></div>
@@ -94,7 +98,6 @@
                         </div>
                     </div>
 
-                    <!-- Warning Jatuh Tempo -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-bell text-orange-500 mr-2"></i>Pengingat Jatuh Tempo Berkas</h2>
@@ -111,28 +114,100 @@
                         <button id="btn-open-add-trx" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2"><i class="fa-solid fa-plus"></i>Tambah Transaksi Baru</button>
                     </div>
                     
-                    <!-- BARIS FILTER & SORTING TERBARU -->
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="relative sm:col-span-2">
+                    <!-- BARIS FILTER LENGKAP TRANSAKSI -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div class="relative lg:col-span-2">
                             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
-                            <input id="search-input" type="text" placeholder="Cari nama, plat, layanan..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
+                            <input id="search-input" type="text" placeholder="Cari nama, plat, atau layanan..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
                         </div>
                         <div>
-                            <input id="filter-date" type="date" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm text-gray-700 bg-white">
+                            <input id="filter-date-start" type="date" title="Dari Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
+                        </div>
+                        <div>
+                            <input id="filter-date-end" type="date" title="Sampai Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
                         </div>
                         <div class="flex gap-2">
-                            <select id="sort-select" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm text-gray-700 bg-white font-medium cursor-pointer">
-                                <option value="date-desc">Terbaru (Default)</option>
+                            <select id="sort-select" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
+                                <option value="date-desc">Terbaru</option>
                                 <option value="date-asc">Terlama</option>
-                                <option value="nama-asc">Nama (A - Z)</option>
-                                <option value="nama-desc">Nama (Z - A)</option>
-                                <option value="total-desc">Nominal Terbesar</option>
-                                <option value="total-asc">Nominal Terkecil</option>
+                                <option value="nama-asc">Nama (A-Z)</option>
+                                <option value="nama-desc">Nama (Z-A)</option>
+                                <option value="total-desc">Nominal Max</option>
+                                <option value="total-asc">Nominal Min</option>
                             </select>
-                            <button id="btn-reset-filter" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-sm font-medium">Reset</button>
+                            <button id="btn-reset-filter" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium">Reset</button>
                         </div>
                     </div>
+
                     <div id="container-transaksi" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><p class="text-sm text-gray-400 italic col-span-full">Memuat data transaksi...</p></div>
+                </section>
+
+                <!-- ================= HALAMAN BARU: KEUANGAN & BUKU KAS ================= -->
+                <section id="page-keuangan" class="page-section hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+                        <div><h1 class="text-2xl font-bold text-gray-900">Laporan Keuangan & Buku Kas</h1><p class="text-gray-500 text-sm">Rekapitulasi omset, modal berkas, pengeluaran kantor, dan laba bersih.</p></div>
+                        <button id="btn-open-add-pengeluaran" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2"><i class="fa-solid fa-minus-circle"></i>Catat Pengeluaran Kantor</button>
+                    </div>
+
+                    <!-- RINGKASAN REKAP KEUANGAN -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-xs text-gray-400 font-semibold uppercase">Total Pemasukan (Omset)</p>
+                            <h3 id="fin-stat-pemasukan" class="text-xl font-bold text-emerald-600 mt-1">Rp 0</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-xs text-gray-400 font-semibold uppercase">Total Modal Berkas (Biaya Riil)</p>
+                            <h3 id="fin-stat-modal" class="text-xl font-bold text-amber-600 mt-1">Rp 0</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                            <p class="text-xs text-gray-400 font-semibold uppercase">Pengeluaran Operasional</p>
+                            <h3 id="fin-stat-pengeluaran" class="text-xl font-bold text-rose-600 mt-1">Rp 0</h3>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 bg-orange-50/50">
+                            <p class="text-xs text-orange-800 font-bold uppercase">Laba Bersih (Keuntungan)</p>
+                            <h3 id="fin-stat-laba" class="text-2xl font-black text-orange-600 mt-1">Rp 0</h3>
+                        </div>
+                    </div>
+
+                    <!-- FILTER BUKU KAS -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div class="relative lg:col-span-2">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
+                            <input id="fin-search-input" type="text" placeholder="Cari keterangan arus kas..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
+                        </div>
+                        <div>
+                            <input id="fin-filter-date-start" type="date" title="Dari Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
+                        </div>
+                        <div>
+                            <input id="fin-filter-date-end" type="date" title="Sampai Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="fin-filter-layanan" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
+                                <option value="ALL">Semua Jenis</option>
+                                <option value="PEMASUKAN">Pemasukan Transaksi</option>
+                                <option value="PENGELUARAN">Pengeluaran Kantor</option>
+                            </select>
+                            <button id="fin-btn-reset" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium">Reset</button>
+                        </div>
+                    </div>
+
+                    <!-- TABEL BUKU KAS -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b text-gray-400 uppercase text-[10px] tracking-wider">
+                                    <th class="p-4">Tanggal</th>
+                                    <th class="p-4">Jenis / Keterangan</th>
+                                    <th class="p-4">Kategori</th>
+                                    <th class="p-4 text-right">Nominal</th>
+                                    <th class="p-4 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="container-buku-kas">
+                                <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Memuat buku kas...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
 
                 <!-- ================= HALAMAN: KLIEN ================= -->
@@ -167,18 +242,14 @@
 
     </div>
 
-    <!-- 3. Anak Index: Modal Form Transaksi -->
+    <!-- 3. Anak Index: Modals -->
     <div data-include="./components/modal-trx.html"></div>
-
-    <!-- 4. Anak Index: Modal Form Klien -->
     <div data-include="./components/modal-klien.html"></div>
+    <div data-include="./components/modal-pengeluaran.html"></div>
 
     <!-- ================= FIREBASE SDK (COMPAT VERSION) ================= -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
-    <!-- LIBRARY GENERATOR PDF INSTAN (ANTI-CRASH) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <!-- PANGGIL MODULES UTAMA -->
     <script type="module" src="./js/app.js"></script>

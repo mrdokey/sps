@@ -20,9 +20,9 @@ export function initTransaksiController() {
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
-    // Event listener Filter & Sorting
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
-    document.getElementById('filter-date')?.addEventListener('change', runFilterAndSort);
+    document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
+    document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
@@ -138,6 +138,7 @@ function openModal(data = null) {
         document.getElementById('trx-tgl-tempo').value = data.tgl_tempo || '';
         document.getElementById('trx-total').value = data.total || 0;
         document.getElementById('trx-bayar').value = data.bayar || 0;
+        document.getElementById('trx-biaya-riil').value = data.biaya_riil || 0;
         document.getElementById('trx-status-bayar').value = data.status_bayar;
         document.getElementById('trx-status-berkas').value = data.status_berkas;
 
@@ -171,6 +172,7 @@ async function saveTransaksi(e) {
         tgl_tempo: document.getElementById('trx-tgl-tempo').value,
         total: parseInt(document.getElementById('trx-total').value) || 0,
         bayar: parseInt(document.getElementById('trx-bayar').value) || 0,
+        biaya_riil: parseInt(document.getElementById('trx-biaya-riil').value) || 0,
         status_bayar: document.getElementById('trx-status-bayar').value,
         status_berkas: document.getElementById('trx-status-berkas').value,
         fotos: uploadedPhotos
@@ -184,15 +186,11 @@ async function saveTransaksi(e) {
             const docRef = await db.collection('transaksi').add(payload);
             docRefId = docRef.id;
 
-            // 🌟 OTO-SEND LINK INVOICE KE WA KLIEN SAAT DAFTAR BARU
             const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
             const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
-            
-            // Kirim WA via VPS
             sendWA(wa, pesanWaBaru);
         }
 
-        // Auto-save/update ke Database Klien
         const clientQuery = await db.collection('klien').where('wa', '==', wa).get();
         if (clientQuery.empty) {
             await db.collection('klien').add({ nama: nama, wa: wa, alamat: alamat });
@@ -201,14 +199,14 @@ async function saveTransaksi(e) {
         }
 
         closeModal();
+        window.showAlert("Sukses", "Data transaksi berhasil disimpan!", "success");
     } catch (err) {
-        alert("Gagal menyimpan data: " + err.message);
+        window.showAlert("Gagal", err.message, "error");
     }
 }
 
-// 🌟 FUNGSI ACTION CEPAT "PROSES" & "SELESAI" WITH AUTO WA NOTIF
-window.updateStatusBerkas = async function(id, newStatus, tData) {
-    if (confirm(`Ubah status berkas ${tData.nama} menjadi ${newStatus}?`)) {
+window.updateStatusBerkas = function(id, newStatus, tData) {
+    window.showConfirm("Ubah Status Berkas", `Ubah status berkas ${tData.nama} menjadi ${newStatus}?`, async () => {
         try {
             await db.collection('transaksi').doc(id).update({ status_berkas: newStatus });
 
@@ -224,15 +222,15 @@ window.updateStatusBerkas = async function(id, newStatus, tData) {
             if (pesanStatus) {
                 const sendRes = await sendWA(tData.wa, pesanStatus);
                 if (sendRes) {
-                    alert(`Status diperbarui ke ${newStatus} & WA notifikasi sukses terkirim!`);
+                    window.showAlert("Berhasil", `Status diperbarui ke ${newStatus} & WA notifikasi sukses terkirim!`, "success");
                 } else {
-                    alert(`Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`);
+                    window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
                 }
             }
         } catch (e) {
-            alert("Gagal memperbarui status: " + e.message);
+            window.showAlert("Gagal", e.message, "error");
         }
-    }
+    });
 };
 
 function renderTransaksiList(data) {
@@ -246,7 +244,6 @@ function renderTransaksiList(data) {
         const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
         const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
 
-        // Tampilan Tombol Action Cepat
         const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
         const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
 
@@ -274,7 +271,6 @@ function renderTransaksiList(data) {
                 </div>
 
                 <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
-                    <!-- Baris Tombol Action Cepat (Proses & Selesai) -->
                     <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
                         <span class="text-[10px] font-bold text-gray-400 uppercase">Ubah Status:</span>
                         <div class="flex gap-1.5">
@@ -301,23 +297,26 @@ function renderTransaksiList(data) {
     }
 }
 
-// 🌟 LOGIKA FILTER & SORTING MULTI-KRITERIA
 function runFilterAndSort() {
     const query = (document.getElementById('search-input')?.value || '').toLowerCase();
-    const date = document.getElementById('filter-date')?.value || '';
+    const startDate = document.getElementById('filter-date-start')?.value || '';
+    const endDate = document.getElementById('filter-date-end')?.value || '';
     const sortBy = document.getElementById('sort-select')?.value || 'date-desc';
 
-    // 1. Filter Data
     let filtered = listTransaksi.filter(t => {
         const matchQuery = (t.nama || '').toLowerCase().includes(query) || 
                            (t.layanan || '').toLowerCase().includes(query) || 
                            (t.field1 && t.field1.toLowerCase().includes(query)) ||
                            (t.field2 && t.field2.toLowerCase().includes(query));
-        const matchDate = date ? t.tgl_masuk === date : true;
+        
+        let matchDate = true;
+        if (startDate && endDate) matchDate = t.tgl_masuk >= startDate && t.tgl_masuk <= endDate;
+        else if (startDate) matchDate = t.tgl_masuk >= startDate;
+        else if (endDate) matchDate = t.tgl_masuk <= endDate;
+
         return matchQuery && matchDate;
     });
 
-    // 2. Sorting Data
     filtered.sort((a, b) => {
         if (sortBy === 'date-desc') return (b.tgl_masuk || '').localeCompare(a.tgl_masuk || '');
         if (sortBy === 'date-asc') return (a.tgl_masuk || '').localeCompare(b.tgl_masuk || '');
@@ -333,20 +332,22 @@ function runFilterAndSort() {
 
 function resetFilter() {
     if (document.getElementById('search-input')) document.getElementById('search-input').value = '';
-    if (document.getElementById('filter-date')) document.getElementById('filter-date').value = '';
+    if (document.getElementById('filter-date-start')) document.getElementById('filter-date-start').value = '';
+    if (document.getElementById('filter-date-end')) document.getElementById('filter-date-end').value = '';
     if (document.getElementById('sort-select')) document.getElementById('sort-select').value = 'date-desc';
     runFilterAndSort();
 }
 
 window.editTransaksi = function(data) { openModal(data); }
 
-window.deleteTransaksi = async function(id) {
-    if (confirm("Hapus data transaksi ini secara permanen?")) {
+window.deleteTransaksi = function(id) {
+    window.showConfirm("Hapus Transaksi", "Hapus data transaksi ini secara permanen?", async () => {
         try {
             await db.collection('transaksi').doc(id).delete();
-        } catch (err) { alert("Gagal menghapus: " + err.message); }
-    }
-}
+            window.showAlert("Terhapus", "Data transaksi berhasil dihapus.", "success");
+        } catch (err) { window.showAlert("Gagal", err.message, "error"); }
+    });
+};
 
 window.printInvoice = function(t) {
     const sisa = t.total - t.bayar;
@@ -385,7 +386,7 @@ window.printInvoice = function(t) {
                 <tbody>
                     <tr><td style="padding: 8px 0;">Biaya ${t.layanan}</td><td style="padding: 8px 0; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
                     <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 8px 0; font-weight: bold;">Total Tagihan</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #ea580c;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
-                    <tr><td style="padding: 8px 0; color: #64748b;">Jumlah Dibayarkan</td><td style="padding: 8px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
+                    <tr><td style="padding: 8px 0; color: #64748b;">Jumlah Dibayar</td><td style="padding: 8px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
                     <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 8px 0; font-weight: bold;">Sisa Tagihan (Piutang)</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e11d48;">Rp ${sisa.toLocaleString('id-ID')}</td></tr>
                 </tbody>
             </table>

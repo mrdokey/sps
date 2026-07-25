@@ -1,5 +1,4 @@
 <aside id="sidebar" class="hidden md:flex flex-col bg-slate-900 text-white sidebar-transition w-64 h-full z-20 shadow-xl">
-    <!-- Brand Logo -->
     <div class="flex items-center justify-between p-4 border-b border-slate-800">
         <span id="logo-text" class="font-bold text-lg text-orange-500 tracking-wider">BIRO JASA SPS</span>
         <button id="btn-toggle-sidebar" class="text-gray-400 hover:text-white">
@@ -7,7 +6,6 @@
         </button>
     </div>
     
-    <!-- Menu Navigasi Desktop -->
     <nav class="flex-1 px-3 py-4 space-y-1">
         <button class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="dashboard">
             <i class="fa-solid fa-chart-pie w-6 text-center"></i>
@@ -16,6 +14,11 @@
         <button class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="transaksi">
             <i class="fa-solid fa-receipt w-6 text-center"></i>
             <span class="menu-text ml-3 font-medium">Transaksi</span>
+        </button>
+        <!-- MENU BARU: KEUANGAN -->
+        <button class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="keuangan">
+            <i class="fa-solid fa-wallet w-6 text-center"></i>
+            <span class="menu-text ml-3 font-medium">Keuangan</span>
         </button>
         <button class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="klien">
             <i class="fa-solid fa-users w-6 text-center"></i>
@@ -27,7 +30,6 @@
         </button>
     </nav>
 
-    <!-- Tombol Keluar / Logout Desktop -->
     <div class="p-3 border-t border-slate-800">
         <button id="btn-logout-desktop" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-950/50 hover:bg-rose-900/50 border border-rose-800 text-rose-300 rounded-xl text-xs font-semibold transition">
             <i class="fa-solid fa-right-from-bracket"></i>
