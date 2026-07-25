@@ -7,9 +7,11 @@ import { initDashboardController } from './controllers/dashboard.js';
 export let isSidebarCollapsed = false;
 let isUserLoggedIn = false;
 
-// KREDENSIAL PASSSWORD HARCODED
-const VALID_USERNAME = "SpsBir0Jasa";
-const VALID_PASSWORD = "Sukses123#";
+// Kredensial WhatsApp Target Terkunci
+const TARGET_PHONE_WA = "62895428400665"; 
+const WA_API_SEND = "https://wa.mrdsolution.my.id/api/send-message";
+const WA_API_KEY = "7BC82018076500360255A4E0F78D52C7";
+const SENDER_SESSION = "botmrd"; 
 
 // =======================================================
 // 🔗 EJS-STYLE PARSER: INJEKSI KOMPONEN DENGAN ANTI-CACHE
@@ -63,30 +65,119 @@ function checkAuth() {
     }
 }
 
-// FUNGSI VERIFIKASI USERNAME & PASSWORD
-function handleLogin(e) {
+// FUNGSI REQUEST KODE OTP BARU VIA WHATSAPP
+async function handleRequestOTP(e) {
     if (e) {
         e.preventDefault();
         e.stopPropagation();
     }
-
-    const usernameInput = document.getElementById('login-username')?.value.trim();
-    const passwordInput = document.getElementById('login-password')?.value;
-
-    if (!usernameInput || !passwordInput) {
-        return alert("Silakan isi Username dan Password!");
+    
+    const btn = document.getElementById('btn-request-otp');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Mengirim...";
     }
 
-    if (usernameInput === VALID_USERNAME && passwordInput === VALID_PASSWORD) {
-        isUserLoggedIn = true;
-        try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
-        try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 300000; // Aktif 5 menit
 
-        checkAuth();
-        switchPage('dashboard');
-    } else {
-        alert("❌ Username atau Password salah!");
+    try {
+        // 1. Simpan OTP ke Firestore
+        await db.collection('login_otp').doc('sps_owner').set({
+            code: generatedOtp,
+            expiresAt: expiresAt
+        });
+
+        // 2. Kirim pesan OTP via botmrd WA Gateway
+        const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda adalah: *${generatedOtp}*\n\n_Kode ini berlaku selama 5 menit. Jangan bagikan kepada siapa pun demi keamanan data._`;
+        const endpoint = `${WA_API_SEND}?key=${WA_API_KEY}&session=${SENDER_SESSION}&to=${TARGET_PHONE_WA}&text=${encodeURIComponent(messageText)}`;
+        
+        await fetch(endpoint);
+
+        // 3. Tampilkan kolom input OTP
+        document.getElementById('area-request-otp')?.classList.add('hidden');
+        document.getElementById('area-verify-otp')?.classList.remove('hidden');
+        startOtpTimer(300);
+    } catch (err) {
+        alert("Gagal memproses OTP: " + err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
     }
+}
+
+// FUNGSI VERIFIKASI KODE OTP
+async function handleVerifyOTP(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    const inputEl = document.getElementById('input-otp');
+    const inputOtp = inputEl ? inputEl.value.trim() : '';
+    
+    if (!inputOtp) return alert("Silakan masukkan kode OTP!");
+
+    try {
+        const doc = await db.collection('login_otp').doc('sps_owner').get();
+        if (doc.exists) {
+            const data = doc.data();
+            const currentTime = Date.now();
+
+            const savedCode = String(data.code || '').trim();
+            const userCode = String(inputOtp).trim();
+
+            if (savedCode === userCode && currentTime < data.expiresAt) {
+                clearInterval(timerInterval);
+                
+                isUserLoggedIn = true;
+                try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+                try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+
+                checkAuth();
+                switchPage('dashboard');
+            } else {
+                if (currentTime >= data.expiresAt) {
+                    alert("❌ Kode OTP sudah kedaluwarsa! Silakan minta kode baru.");
+                } else {
+                    alert("❌ Kode OTP yang Anda masukkan salah!");
+                }
+            }
+        } else {
+            alert("❌ Sesi OTP tidak ditemukan di server!");
+        }
+    } catch (err) {
+        alert("Gagal verifikasi: " + err.message);
+    }
+}
+
+let timerInterval;
+function startOtpTimer(duration) {
+    let timer = duration, minutes, seconds;
+    const timerDisplay = document.getElementById('otp-timer');
+    clearInterval(timerInterval);
+
+    timerInterval = setInterval(() => {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+        if (timerDisplay) timerDisplay.textContent = `Kode kedaluwarsa dalam: ${minutes}:${seconds}`;
+
+        if (--timer < 0) {
+            clearInterval(timerInterval);
+            document.getElementById('area-request-otp')?.classList.remove('hidden');
+            document.getElementById('area-verify-otp')?.classList.add('hidden');
+            const btn = document.getElementById('btn-request-otp');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "Minta Kode OTP";
+            }
+        }
+    }, 1000);
 }
 
 function handleLogout() {
@@ -95,10 +186,14 @@ function handleLogout() {
         try { localStorage.removeItem('sps_logged_in'); } catch(e) {}
         try { sessionStorage.removeItem('sps_logged_in'); } catch(e) {}
         checkAuth();
-        const userEl = document.getElementById('login-username');
-        const passEl = document.getElementById('login-password');
-        if (userEl) userEl.value = '';
-        if (passEl) passEl.value = '';
+        document.getElementById('area-request-otp')?.classList.remove('hidden');
+        document.getElementById('area-verify-otp')?.classList.add('hidden');
+        const btn = document.getElementById('btn-request-otp');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
+        clearInterval(timerInterval);
     }
 }
 
@@ -157,9 +252,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 2. Cek status otentikasi login
     checkAuth();
 
-    // 3. Hubungkan event listener login
-    document.getElementById('btn-login')?.addEventListener('click', handleLogin);
-    document.getElementById('form-login')?.addEventListener('submit', handleLogin);
+    // 3. Hubungkan event listener login OTP
+    document.getElementById('btn-request-otp')?.addEventListener('click', handleRequestOTP);
+    document.getElementById('btn-verify-otp')?.addEventListener('click', handleVerifyOTP);
 
     // 4. Hubungkan tombol logout
     document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
