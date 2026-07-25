@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIRO JASA SPS</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome untuk Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Transisi smooth untuk sidebar */
+        .sidebar-transition {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- ================= DESKTOP SIDEBAR ================= -->
+        <aside id="sidebar" class="hidden md:flex flex-col bg-slate-900 text-white sidebar-transition w-64 h-full z-20">
+            <!-- Brand Logo -->
+            <div class="flex items-center justify-between p-4 border-b border-slate-800">
+                <span id="logo-text" class="font-bold text-lg text-orange-500">BIRO JASA SPS</span>
+                <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+            </div>
+            
+            <!-- Menu Navigasi Desktop -->
+            <nav class="flex-1 px-2 py-4 space-y-1">
+                <button onclick="switchPage('dashboard')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="dashboard">
+                    <i class="fa-solid fa-chart-pie w-6 text-center"></i>
+                    <span class="menu-text ml-3">Dashboard</span>
+                </button>
+                <button onclick="switchPage('transaksi')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="transaksi">
+                    <i class="fa-solid fa-receipt w-6 text-center"></i>
+                    <span class="menu-text ml-3">Transaksi</span>
+                </button>
+                <button onclick="switchPage('klien')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="klien">
+                    <i class="fa-solid fa-users w-6 text-center"></i>
+                    <span class="menu-text ml-3">Data Klien</span>
+                </button>
+                <button onclick="switchPage('setelan')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="setelan">
+                    <i class="fa-solid fa-gears w-6 text-center"></i>
+                    <span class="menu-text ml-3">Setelan</span>
+                </button>
+            </nav>
+            <div class="p-4 border-t border-slate-800 text-xs text-gray-500 text-center menu-text">
+                v1.0.0 © SPS
+            </div>
+        </aside>
+
+        <!-- ================= MAIN CONTENT CONTAINER ================= -->
+        <div class="flex flex-col flex-1 w-full h-full overflow-y-auto pb-16 md:pb-0">
+            
+            <!-- Top Bar / Header Mobile -->
+            <header class="md:hidden bg-slate-900 text-white flex items-center justify-between p-4 shadow-md">
+                <span class="font-bold text-lg text-orange-500">BIRO JASA SPS</span>
+                <div class="text-sm text-gray-300">SPS Mobile</div>
+            </header>
+
+            <!-- Area Halaman Dinamis -->
+            <main class="flex-1 p-4 md:p-6 lg:p-8">
+                
+                <!-- Halaman: Dashboard -->
+                <section id="page-dashboard" class="page-section">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-4">Dashboard Utama</h1>
+                    <p class="text-gray-600">Selamat datang di sistem manajemen internal Biro Jasa SPS.</p>
+                    <!-- Tempat menaruh ringkasan keuangan / popup pengingat -->
+                </section>
+
+                <!-- Halaman: Transaksi -->
+                <section id="page-transaksi" class="page-section hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900">Daftar Transaksi</h1>
+                        <button class="mt-2 sm:mt-0 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition shadow">
+                            <i class="fa-solid fa-plus mr-2"></i>Tambah Transaksi
+                        </button>
+                    </div>
+                    
+                    <!-- Fitur Cari & Filter -->
+                    <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-col md:flex-row gap-4">
+                        <div class="flex-1 relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
+                            <input type="text" placeholder="Cari nama klien, plat nomor, atau layanan..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
+                        </div>
+                        <div class="w-full md:w-48">
+                            <input type="date" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-600">
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Halaman: Klien -->
+                <section id="page-klien" class="page-section hidden">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-4">Database Klien</h1>
+                    <p class="text-gray-600">Kelola informasi pelanggan tetap Anda di sini.</p>
+                </section>
+
+                <!-- Halaman: Setelan -->
+                <section id="page-setelan" class="page-section hidden">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-4">Setelan Aplikasi</h1>
+                    <p class="text-gray-600">Konfigurasi profile perusahaan, nomor kontak, dan template pesan.</p>
+                </section>
+
+            </main>
+        </div>
+
+        <!-- ================= MOBILE BOTTOM NAVIGATION ================= -->
+        <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-gray-400 border-t border-slate-800 flex justify-around items-center h-16 z-30">
+            <button onclick="switchPage('dashboard')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="dashboard">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[10px] mt-1">Dashboard</span>
+            </button>
+            <button onclick="switchPage('transaksi')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="transaksi">
+                <i class="fa-solid fa-receipt text-lg"></i>
+                <span class="text-[10px] mt-1">Transaksi</span>
+            </button>
+            <button onclick="switchPage('klien')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="klien">
+                <i class="fa-solid fa-users text-lg"></i>
+                <span class="text-[10px] mt-1">Klien</span>
+            </button>
+            <button onclick="switchPage('setelan')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="setelan">
+                <i class="fa-solid fa-gears text-lg"></i>
+                <span class="text-[10px] mt-1">Setelan</span>
+            </button>
+        </nav>
+
+    </div>
+
+    <!-- Logika Javascript Sederhana untuk Navigasi -->
+    <script>
+        let isSidebarCollapsed = false;
+
+        // Fungsi berpindah halaman
+        function switchPage(pageId) {
+            // Sembunyikan semua section halaman
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            // Tampilkan section halaman terpilih
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+
+            // Perbarui warna status tombol aktif di Desktop Sidebar
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.getAttribute('data-page') === pageId) {
+                    btn.classList.add('bg-orange-600', 'text-white');
+                    btn.classList.remove('text-gray-300', 'hover:bg-slate-800');
+                } else {
+                    btn.classList.remove('bg-orange-600', 'text-white');
+                    btn.classList.add('text-gray-300', 'hover:bg-slate-800');
+                }
+            });
+
+            // Perbarui warna status tombol aktif di Mobile Bottom Nav
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                if (btn.getAttribute('data-page') === pageId) {
+                    btn.classList.add('text-orange-500');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('text-orange-500');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+        }
+
+        // Fungsi mengecilkan sidebar desktop
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const logoText = document.getElementById('logo-text');
+            const menuTexts = document.querySelectorAll('.menu-text');
+
+            if (!isSidebarCollapsed) {
+                sidebar.classList.remove('w-64');
+                sidebar.classList.add('w-20');
+                logoText.classList.add('hidden');
+                menuTexts.forEach(text => text.classList.add('hidden'));
+                isSidebarCollapsed = true;
+            } else {
+                sidebar.classList.remove('w-20');
+                sidebar.classList.add('w-64');
+                logoText.classList.remove('hidden');
+                menuTexts.forEach(text => text.classList.remove('hidden'));
+                isSidebarCollapsed = false;
+            }
+        }
+
+        // Set halaman default saat aplikasi dibuka
+        switchPage('dashboard');
+    </script>
+</body>
+</html>
