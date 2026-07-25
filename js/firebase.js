@@ -1,4 +1,4 @@
-// Konfigurasi Project Firestore Anda
+// Konfigurasi Project Firestore Anda (Ganti dengan config Anda)
 const firebaseConfig = {
   apiKey: "AIzaSyCDLuOEAGJRz4cfl8rn5JDrQOCehYE5SJg",
   authDomain: "sps-birojasa.firebaseapp.com",
@@ -8,7 +8,7 @@ const firebaseConfig = {
   appId: "1:1076645783427:web:9b944d08ec4a85682838b6"
 };
 
-// Inisialisasi Firebase secara global
+// Inisialisasi Firebase secara global menggunakan window object
 window.firebase.initializeApp(firebaseConfig);
 
 // Ekspor instance Database Firestore agar bisa di-import oleh file JS controller lain
