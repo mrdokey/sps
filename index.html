@@ -3,106 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BIRO JASA SPS</title>
+    <title>Sistem Internal - BIRO JASA SPS</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome untuk Icon -->
+    <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Transisi smooth untuk sidebar */
-        .sidebar-transition {
-            transition: width 0.3s ease;
-        }
+        .sidebar-transition { transition: width 0.3s ease; }
     </style>
 </head>
-<body class="bg-gray-100 font-sans text-gray-800">
+<body class="bg-slate-50 font-sans text-gray-800">
 
     <div class="flex h-screen overflow-hidden">
 
         <!-- ================= DESKTOP SIDEBAR ================= -->
-        <aside id="sidebar" class="hidden md:flex flex-col bg-slate-900 text-white sidebar-transition w-64 h-full z-20">
-            <!-- Brand Logo -->
+        <aside id="sidebar" class="hidden md:flex flex-col bg-slate-900 text-white sidebar-transition w-64 h-full z-20 shadow-xl">
             <div class="flex items-center justify-between p-4 border-b border-slate-800">
-                <span id="logo-text" class="font-bold text-lg text-orange-500">BIRO JASA SPS</span>
+                <span id="logo-text" class="font-bold text-lg text-orange-500 tracking-wider">BIRO JASA SPS</span>
                 <button onclick="toggleSidebar()" class="text-gray-400 hover:text-white">
                     <i class="fa-solid fa-bars text-xl"></i>
                 </button>
             </div>
             
-            <!-- Menu Navigasi Desktop -->
-            <nav class="flex-1 px-2 py-4 space-y-1">
-                <button onclick="switchPage('dashboard')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="dashboard">
+            <nav class="flex-1 px-3 py-4 space-y-1">
+                <button onclick="switchPage('dashboard')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="dashboard">
                     <i class="fa-solid fa-chart-pie w-6 text-center"></i>
-                    <span class="menu-text ml-3">Dashboard</span>
+                    <span class="menu-text ml-3 font-medium">Dashboard</span>
                 </button>
-                <button onclick="switchPage('transaksi')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="transaksi">
+                <button onclick="switchPage('transaksi')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="transaksi">
                     <i class="fa-solid fa-receipt w-6 text-center"></i>
-                    <span class="menu-text ml-3">Transaksi</span>
+                    <span class="menu-text ml-3 font-medium">Transaksi</span>
                 </button>
-                <button onclick="switchPage('klien')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="klien">
+                <button onclick="switchPage('klien')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="klien">
                     <i class="fa-solid fa-users w-6 text-center"></i>
-                    <span class="menu-text ml-3">Data Klien</span>
+                    <span class="menu-text ml-3 font-medium">Data Klien</span>
                 </button>
-                <button onclick="switchPage('setelan')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-lg transition" data-page="setelan">
+                <button onclick="switchPage('setelan')" class="nav-btn w-full flex items-center px-4 py-3 text-gray-300 hover:bg-slate-800 hover:text-white rounded-xl transition" data-page="setelan">
                     <i class="fa-solid fa-gears w-6 text-center"></i>
-                    <span class="menu-text ml-3">Setelan</span>
+                    <span class="menu-text ml-3 font-medium">Setelan</span>
                 </button>
             </nav>
             <div class="p-4 border-t border-slate-800 text-xs text-gray-500 text-center menu-text">
-                v1.0.0 © SPS
+                BIRO JASA SPS v1.0
             </div>
         </aside>
 
         <!-- ================= MAIN CONTENT CONTAINER ================= -->
-        <div class="flex flex-col flex-1 w-full h-full overflow-y-auto pb-16 md:pb-0">
+        <div class="flex flex-col flex-1 w-full h-full overflow-y-auto pb-20 md:pb-0">
             
-            <!-- Top Bar / Header Mobile -->
-            <header class="md:hidden bg-slate-900 text-white flex items-center justify-between p-4 shadow-md">
-                <span class="font-bold text-lg text-orange-500">BIRO JASA SPS</span>
-                <div class="text-sm text-gray-300">SPS Mobile</div>
+            <!-- Top Bar Mobile -->
+            <header class="md:hidden bg-slate-900 text-white flex items-center justify-between p-4 shadow-md sticky top-0 z-10">
+                <span class="font-bold text-lg text-orange-500 tracking-wider">BIRO JASA SPS</span>
+                <span class="text-xs bg-orange-600 px-2 py-1 rounded-full font-medium">Internal</span>
             </header>
 
-            <!-- Area Halaman Dinamis -->
             <main class="flex-1 p-4 md:p-6 lg:p-8">
                 
-                <!-- Halaman: Dashboard -->
+                <!-- ================= HALAMAN: DASHBOARD ================= -->
                 <section id="page-dashboard" class="page-section">
-                    <h1 class="text-2xl font-bold text-gray-900 mb-4">Dashboard Utama</h1>
-                    <p class="text-gray-600">Selamat datang di sistem manajemen internal Biro Jasa SPS.</p>
-                    <!-- Tempat menaruh ringkasan keuangan / popup pengingat -->
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Dashboard Utama</h1>
+                    <p class="text-gray-500 text-sm mb-6">Ringkasan aktivitas operasional Biro Jasa SPS.</p>
+
+                    <!-- Widget Stats -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase">Total Order</p>
+                                <h3 id="stat-total-trx" class="text-2xl font-bold text-gray-800 mt-1">0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 text-xl">
+                                <i class="fa-solid fa-folder-open"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase">Proses Berkas</p>
+                                <h3 id="stat-proses-trx" class="text-2xl font-bold text-blue-600 mt-1">0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl">
+                                <i class="fa-solid fa-spinner"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase">Selesai</p>
+                                <h3 id="stat-selesai-trx" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-400 font-semibold uppercase">Belum Lunas (Piutang)</p>
+                                <h3 id="stat-piutang-trx" class="text-2xl font-bold text-rose-600 mt-1">Rp 0</h3>
+                            </div>
+                            <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 text-xl">
+                                <i class="fa-solid fa-wallet"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warning Jatuh Tempo -->
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-gray-800">
+                                <i class="fa-solid fa-bell text-orange-500 mr-2"></i>Pengingat Jatuh Tempo Berkas
+                            </h2>
+                            <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-medium">Perlu Dihubungi</span>
+                        </div>
+                        <div id="list-reminder" class="space-y-3">
+                            <p class="text-sm text-gray-400 italic">Memuat data pengingat...</p>
+                        </div>
+                    </div>
                 </section>
 
-                <!-- Halaman: Transaksi -->
+                <!-- ================= HALAMAN: TRANSAKSI ================= -->
                 <section id="page-transaksi" class="page-section hidden">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-                        <h1 class="text-2xl font-bold text-gray-900">Daftar Transaksi</h1>
-                        <button class="mt-2 sm:mt-0 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition shadow">
-                            <i class="fa-solid fa-plus mr-2"></i>Tambah Transaksi
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Daftar Transaksi</h1>
+                            <p class="text-gray-500 text-sm">Kelola order berkas dan status pembayaran.</p>
+                        </div>
+                        <button onclick="openModalTrx()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-plus"></i>Tambah Transaksi Baru
                         </button>
                     </div>
                     
-                    <!-- Fitur Cari & Filter -->
-                    <div class="bg-white p-4 rounded-xl shadow mb-6 flex flex-col md:flex-row gap-4">
+                    <!-- Search & Filter Bar -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-3">
                         <div class="flex-1 relative">
-                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
-                            <input type="text" placeholder="Cari nama klien, plat nomor, atau layanan..." class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
+                            <input id="search-input" onkeyup="filterTransaksi()" type="text" placeholder="Cari nama klien, plat nomor, atau jenis layanan..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
                         </div>
-                        <div class="w-full md:w-48">
-                            <input type="date" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-gray-600">
+                        <div class="w-full md:w-56">
+                            <input id="filter-date" onchange="filterTransaksi()" type="date" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm text-gray-600">
                         </div>
+                        <button onclick="resetFilter()" class="px-4 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-sm font-medium">Reset</button>
+                    </div>
+
+                    <!-- Container List Transaksi -->
+                    <div id="container-transaksi" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <p class="text-sm text-gray-400 italic col-span-full">Memuat data transaksi...</p>
                     </div>
                 </section>
 
-                <!-- Halaman: Klien -->
+                <!-- ================= HALAMAN: KLIEN ================= -->
                 <section id="page-klien" class="page-section hidden">
-                    <h1 class="text-2xl font-bold text-gray-900 mb-4">Database Klien</h1>
-                    <p class="text-gray-600">Kelola informasi pelanggan tetap Anda di sini.</p>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Database Klien</h1>
+                            <p class="text-gray-500 text-sm">Daftar kontak pelanggan tetap Biro Jasa SPS.</p>
+                        </div>
+                        <button onclick="openModalKlien()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-user-plus"></i>Tambah Klien
+                        </button>
+                    </div>
+
+                    <div id="container-klien" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <p class="text-sm text-gray-400 italic col-span-full">Memuat data klien...</p>
+                    </div>
                 </section>
 
-                <!-- Halaman: Setelan -->
+                <!-- ================= HALAMAN: SETELAN ================= -->
                 <section id="page-setelan" class="page-section hidden">
-                    <h1 class="text-2xl font-bold text-gray-900 mb-4">Setelan Aplikasi</h1>
-                    <p class="text-gray-600">Konfigurasi profile perusahaan, nomor kontak, dan template pesan.</p>
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Setelan Perusahaan</h1>
+                    <p class="text-gray-500 text-sm mb-6">Konfigurasi profil usaha dan template pesan WhatsApp.</p>
+
+                    <form id="form-config" onsubmit="saveConfig(event)" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-w-2xl space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Nama Perusahaan</label>
+                            <input type="text" id="cfg-nama" class="w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 text-sm" required>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Rekening BCA</label>
+                                <input type="text" id="cfg-bca" class="w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Rekening BPD</label>
+                                <input type="text" id="cfg-bpd" class="w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Template Pesan WhatsApp Reminder</label>
+                            <textarea id="cfg-wa-template" rows="4" class="w-full px-3.5 py-2 border rounded-xl focus:ring-2 focus:ring-orange-500 text-sm" placeholder="Halo {nama}, menginfokan berkas {layanan} ({detail}) akan jatuh tempo pada {tanggal}. Mohon konfirmasinya. Terima kasih."></textarea>
+                            <span class="text-[11px] text-gray-400 italic">Variabel tersedia: {nama}, {layanan}, {detail}, {tanggal}</span>
+                        </div>
+                        <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-xl font-medium text-sm transition">
+                            <i class="fa-solid fa-floppy-disk mr-2"></i>Simpan Konfigurasi
+                        </button>
+                    </form>
                 </section>
 
             </main>
@@ -110,19 +201,19 @@
 
         <!-- ================= MOBILE BOTTOM NAVIGATION ================= -->
         <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 text-gray-400 border-t border-slate-800 flex justify-around items-center h-16 z-30">
-            <button onclick="switchPage('dashboard')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="dashboard">
+            <button onclick="switchPage('dashboard')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full" data-page="dashboard">
                 <i class="fa-solid fa-chart-pie text-lg"></i>
                 <span class="text-[10px] mt-1">Dashboard</span>
             </button>
-            <button onclick="switchPage('transaksi')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="transaksi">
+            <button onclick="switchPage('transaksi')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full" data-page="transaksi">
                 <i class="fa-solid fa-receipt text-lg"></i>
                 <span class="text-[10px] mt-1">Transaksi</span>
             </button>
-            <button onclick="switchPage('klien')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="klien">
+            <button onclick="switchPage('klien')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full" data-page="klien">
                 <i class="fa-solid fa-users text-lg"></i>
                 <span class="text-[10px] mt-1">Klien</span>
             </button>
-            <button onclick="switchPage('setelan')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full hover:text-white" data-page="setelan">
+            <button onclick="switchPage('setelan')" class="mobile-nav-btn flex flex-col items-center justify-center w-full h-full" data-page="setelan">
                 <i class="fa-solid fa-gears text-lg"></i>
                 <span class="text-[10px] mt-1">Setelan</span>
             </button>
@@ -130,20 +221,162 @@
 
     </div>
 
-    <!-- Logika Javascript Sederhana untuk Navigasi -->
-    <script>
-        let isSidebarCollapsed = false;
+    <!-- ================= MODAL FORM TRANSAKSI ================= -->
+    <div id="modal-trx" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 id="modal-trx-title" class="text-lg font-bold text-gray-800">Tambah Transaksi Baru</h3>
+                <button onclick="closeModalTrx()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <form id="form-trx" onsubmit="saveTransaksi(event)" class="space-y-3">
+                <input type="hidden" id="trx-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Klien / Pelanggan *</label>
+                    <input type="text" id="trx-nama" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nomor WhatsApp *</label>
+                    <input type="tel" id="trx-wa" placeholder="08123456789" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Jenis Layanan *</label>
+                    <select id="trx-layanan" onchange="handleLayananChange()" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                        <option value="SAMSAT">SAMSAT JAWA - BALI</option>
+                        <option value="SIM">SIM</option>
+                        <option value="BALIK NAMA">BALIK NAMA</option>
+                        <option value="SLF">SLF (Sertifikat Laik Fungsi)</option>
+                        <option value="MUTASI">MUTASI</option>
+                        <option value="KIR">KIR</option>
+                        <option value="LAIN-LAIN">LAIN-LAIN</option>
+                    </select>
+                </div>
 
-        // Fungsi berpindah halaman
+                <!-- DYNAMIC FIELD 1: Kendaraan (Samsat/SIM/Mutasi/KIR/Balik Nama) -->
+                <div id="field-kendaraan" class="p-3 bg-gray-50 rounded-xl space-y-2 border border-gray-100">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Plat Nomor / No. Polisi</label>
+                        <input type="text" id="trx-plat" placeholder="DK 1234 AB" class="w-full px-3 py-2 border rounded-xl text-sm uppercase">
+                    </div>
+                </div>
+
+                <!-- DYNAMIC FIELD 2: SLF (Bangunan) -->
+                <div id="field-slf" class="p-3 bg-gray-50 rounded-xl space-y-2 border border-gray-100 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Nama / Alamat Bangunan</label>
+                        <input type="text" id="trx-bangunan" placeholder="Ruko / Gedung Pemuda No. 10" class="w-full px-3 py-2 border rounded-xl text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Masuk</label>
+                        <input type="date" id="trx-tgl-masuk" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Jatuh Tempo</label>
+                        <input type="date" id="trx-tgl-tempo" class="w-full px-3 py-2 border rounded-xl text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Total Biaya (Rp)</label>
+                        <input type="number" id="trx-total" placeholder="1000000" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Sudah Dibayar (Rp)</label>
+                        <input type="number" id="trx-bayar" placeholder="500000" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Status Bayar</label>
+                        <select id="trx-status-bayar" class="w-full px-3 py-2 border rounded-xl text-sm">
+                            <option value="BELUM BAYAR">BELUM BAYAR</option>
+                            <option value="DP">DP (Uang Muka)</option>
+                            <option value="LUNAS">LUNAS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Status Berkas</label>
+                        <select id="trx-status-berkas" class="w-full px-3 py-2 border rounded-xl text-sm">
+                            <option value="PENDING">PENDING</option>
+                            <option value="PROSES">PROSES</option>
+                            <option value="SELESAI">SELESAI</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="pt-3 flex justify-end gap-2 border-t mt-4">
+                    <button type="button" onclick="closeModalTrx()" class="px-4 py-2 border rounded-xl text-sm font-medium text-gray-600">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-medium shadow">Simpan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL FORM KLIEN ================= -->
+    <div id="modal-klien" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 class="text-lg font-bold text-gray-800">Tambah Data Klien</h3>
+                <button onclick="closeModalKlien()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <form id="form-klien" onsubmit="saveKlien(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Lengkap *</label>
+                    <input type="text" id="klien-nama" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nomor WhatsApp *</label>
+                    <input type="tel" id="klien-wa" placeholder="08123456789" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Alamat Singkat</label>
+                    <textarea id="klien-alamat" rows="2" class="w-full px-3 py-2 border rounded-xl text-sm"></textarea>
+                </div>
+
+                <div class="pt-3 flex justify-end gap-2 border-t mt-4">
+                    <button type="button" onclick="closeModalKlien()" class="px-4 py-2 border rounded-xl text-sm font-medium text-gray-600">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-medium shadow">Simpan Klien</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= FIREBASE COMPAT SDK ================= -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <!-- LOGIKA SISTEM INTEGRASI -->
+    <script>
+        // 1. Firebase Config milik Om
+        const firebaseConfig = {
+          apiKey: "AIzaSyCDLuOEAGJRz4cfl8rn5JDrQOCehYE5SJg",
+          authDomain: "sps-birojasa.firebaseapp.com",
+          projectId: "sps-birojasa",
+          storageBucket: "sps-birojasa.firebasestorage.app",
+          messagingSenderId: "1076645783427",
+          appId: "1:1076645783427:web:9b944d08ec4a85682838b6"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Variable Global State
+        let allTransaksi = [];
+        let isSidebarCollapsed = false;
+        let configData = {};
+
+        // --- NAVIGASI SCRIPT ---
         function switchPage(pageId) {
-            // Sembunyikan semua section halaman
-            document.querySelectorAll('.page-section').forEach(section => {
-                section.classList.add('hidden');
-            });
-            // Tampilkan section halaman terpilih
+            document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
             document.getElementById(`page-${pageId}`).classList.remove('hidden');
 
-            // Perbarui warna status tombol aktif di Desktop Sidebar
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 if (btn.getAttribute('data-page') === pageId) {
                     btn.classList.add('bg-orange-600', 'text-white');
@@ -154,7 +387,6 @@
                 }
             });
 
-            // Perbarui warna status tombol aktif di Mobile Bottom Nav
             document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
                 if (btn.getAttribute('data-page') === pageId) {
                     btn.classList.add('text-orange-500');
@@ -166,7 +398,6 @@
             });
         }
 
-        // Fungsi mengecilkan sidebar desktop
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             const logoText = document.getElementById('logo-text');
@@ -187,7 +418,261 @@
             }
         }
 
-        // Set halaman default saat aplikasi dibuka
+        // --- DYNAMIC FORM HANDLER ---
+        function handleLayananChange() {
+            const layanan = document.getElementById('trx-layanan').value;
+            const fieldKendaraan = document.getElementById('field-kendaraan');
+            const fieldSlf = document.getElementById('field-slf');
+
+            if (layanan === 'SLF') {
+                fieldKendaraan.classList.add('hidden');
+                fieldSlf.classList.remove('hidden');
+            } else {
+                fieldKendaraan.classList.remove('hidden');
+                fieldSlf.classList.add('hidden');
+            }
+        }
+
+        // --- MODAL CONTROLLERS ---
+        function openModalTrx(data = null) {
+            document.getElementById('form-trx').reset();
+            document.getElementById('trx-id').value = '';
+            document.getElementById('trx-tgl-masuk').value = new Date().toISOString().split('T')[0];
+            document.getElementById('modal-trx-title').innerText = 'Tambah Transaksi Baru';
+
+            if (data) {
+                document.getElementById('modal-trx-title').innerText = 'Edit Transaksi';
+                document.getElementById('trx-id').value = data.id;
+                document.getElementById('trx-nama').value = data.nama;
+                document.getElementById('trx-wa').value = data.wa;
+                document.getElementById('trx-layanan').value = data.layanan;
+                document.getElementById('trx-plat').value = data.plat || '';
+                document.getElementById('trx-bangunan').value = data.bangunan || '';
+                document.getElementById('trx-tgl-masuk').value = data.tgl_masuk || '';
+                document.getElementById('trx-tgl-tempo').value = data.tgl_tempo || '';
+                document.getElementById('trx-total').value = data.total || 0;
+                document.getElementById('trx-bayar').value = data.bayar || 0;
+                document.getElementById('trx-status-bayar').value = data.status_bayar;
+                document.getElementById('trx-status-berkas').value = data.status_berkas;
+            }
+            handleLayananChange();
+            document.getElementById('modal-trx').classList.remove('hidden');
+        }
+
+        function closeModalTrx() { document.getElementById('modal-trx').classList.add('hidden'); }
+        function openModalKlien() { document.getElementById('modal-klien').classList.remove('hidden'); }
+        function closeModalKlien() { document.getElementById('modal-klien').classList.add('hidden'); }
+
+        // --- FIRESTORE REALTIME LISTENERS ---
+
+        // 1. Load Transaksi
+        db.collection('transaksi').orderBy('tgl_masuk', 'desc').onSnapshot(snapshot => {
+            allTransaksi = [];
+            let totalPiutang = 0;
+            let countProses = 0;
+            let countSelesai = 0;
+            let reminderHtml = '';
+
+            snapshot.forEach(doc => {
+                const item = { id: doc.id, ...doc.data() };
+                allTransaksi.push(item);
+
+                // Stats calculation
+                const sisa = (item.total || 0) - (item.bayar || 0);
+                if (sisa > 0) totalPiutang += sisa;
+                if (item.status_berkas === 'PROSES') countProses++;
+                if (item.status_berkas === 'SELESAI') countSelesai++;
+
+                // Reminder list generator (jika ada tgl tempo)
+                if (item.tgl_tempo) {
+                    const detailInfo = item.layanan === 'SLF' ? item.bangunan : item.plat;
+                    reminderHtml += `
+                        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-sm border border-gray-100">
+                            <div>
+                                <span class="font-bold text-gray-800">${item.nama}</span>
+                                <span class="text-xs text-gray-500"> (${item.layanan} - ${detailInfo || '-'})</span>
+                                <p class="text-xs text-orange-600 font-medium mt-0.5">Jatuh Tempo: ${item.tgl_tempo}</p>
+                            </div>
+                            <button onclick="kirimWAReminder('${item.wa}', '${item.nama}', '${item.layanan}', '${detailInfo}', '${item.tgl_tempo}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow">
+                                <i class="fa-brands fa-whatsapp mr-1"></i>Ingatkan
+                            </button>
+                        </div>
+                    `;
+                }
+            });
+
+            // Update Stats UI
+            document.getElementById('stat-total-trx').innerText = allTransaksi.length;
+            document.getElementById('stat-proses-trx').innerText = countProses;
+            document.getElementById('stat-selesai-trx').innerText = countSelesai;
+            document.getElementById('stat-piutang-trx').innerText = `Rp ${totalPiutang.toLocaleString('id-ID')}`;
+            document.getElementById('list-reminder').innerHTML = reminderHtml || '<p class="text-sm text-gray-400 italic">Tidak ada agenda jatuh tempo terdekat.</p>';
+
+            renderTransaksi(allTransaksi);
+        });
+
+        // 2. Load Klien
+        db.collection('klien').onSnapshot(snapshot => {
+            let html = '';
+            snapshot.forEach(doc => {
+                const k = doc.data();
+                html += `
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+                        <div>
+                            <h4 class="font-bold text-gray-800">${k.nama}</h4>
+                            <p class="text-xs text-gray-500 mt-0.5"><i class="fa-brands fa-whatsapp text-emerald-600 mr-1"></i>${k.wa}</p>
+                            <p class="text-xs text-gray-400 mt-1">${k.alamat || '-'}</p>
+                        </div>
+                        <button onclick="deleteKlien('${doc.id}')" class="text-rose-500 hover:bg-rose-50 p-2 rounded-lg text-sm"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+            });
+            document.getElementById('container-klien').innerHTML = html || '<p class="text-sm text-gray-400 italic col-span-full">Belum ada data klien.</p>';
+        });
+
+        // 3. Load Config Profile
+        db.collection('konfigurasi').doc('profile').onSnapshot(doc => {
+            if (doc.exists) {
+                configData = doc.data();
+                document.getElementById('cfg-nama').value = configData.nama || '';
+                document.getElementById('cfg-bca').value = configData.bca || '';
+                document.getElementById('cfg-bpd').value = configData.bpd || '';
+                document.getElementById('cfg-wa-template').value = configData.wa_template || '';
+            }
+        });
+
+        // --- RENDER TRANSAKSI & FILTER ---
+        function renderTransaksi(data) {
+            let html = '';
+            data.forEach(t => {
+                const detailInfo = t.layanan === 'SLF' ? (t.bangunan || '-') : (t.plat || '-');
+                const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
+                const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
+
+                html += `
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar}</span>
+                                <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBerkas}">${t.status_berkas}</span>
+                            </div>
+                            <h3 class="font-bold text-gray-800 text-base mt-1">${t.nama}</h3>
+                            <p class="text-xs text-orange-600 font-semibold mt-0.5">${t.layanan} • ${detailInfo}</p>
+                            <p class="text-xs text-gray-400 mt-1"><i class="fa-solid fa-calendar mr-1"></i>Masuk: ${t.tgl_masuk}</p>
+                            
+                            <div class="mt-4 pt-3 border-t text-xs space-y-1">
+                                <div class="flex justify-between text-gray-500"><span>Total:</span><span>Rp ${(t.total||0).toLocaleString('id-ID')}</span></div>
+                                <div class="flex justify-between text-gray-500"><span>Bayar:</span><span>Rp ${(t.bayar||0).toLocaleString('id-ID')}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 mt-4 pt-3 border-t">
+                            <button onclick='openModalTrx(${JSON.stringify(t)})' class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium"><i class="fa-solid fa-pen mr-1"></i>Edit</button>
+                            <button onclick="deleteTransaksi('${t.id}')" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium"><i class="fa-solid fa-trash mr-1"></i>Hapus</button>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('container-transaksi').innerHTML = html || '<p class="text-sm text-gray-400 italic col-span-full">Data transaksi tidak ditemukan.</p>';
+        }
+
+        function filterTransaksi() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const date = document.getElementById('filter-date').value;
+
+            const filtered = allTransaksi.filter(t => {
+                const matchQuery = t.nama.toLowerCase().includes(query) || 
+                                   t.layanan.toLowerCase().includes(query) || 
+                                   (t.plat && t.plat.toLowerCase().includes(query)) ||
+                                   (t.bangunan && t.bangunan.toLowerCase().includes(query));
+                const matchDate = date ? t.tgl_masuk === date : true;
+                return matchQuery && matchDate;
+            });
+            renderTransaksi(filtered);
+        }
+
+        function resetFilter() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('filter-date').value = '';
+            renderTransaksi(allTransaksi);
+        }
+
+        // --- CRUD ACTIONS ---
+        function saveTransaksi(e) {
+            e.preventDefault();
+            const id = document.getElementById('trx-id').value;
+            const payload = {
+                nama: document.getElementById('trx-nama').value,
+                wa: document.getElementById('trx-wa').value,
+                layanan: document.getElementById('trx-layanan').value,
+                plat: document.getElementById('trx-plat').value,
+                bangunan: document.getElementById('trx-bangunan').value,
+                tgl_masuk: document.getElementById('trx-tgl-masuk').value,
+                tgl_tempo: document.getElementById('trx-tgl-tempo').value,
+                total: parseInt(document.getElementById('trx-total').value) || 0,
+                bayar: parseInt(document.getElementById('trx-bayar').value) || 0,
+                status_bayar: document.getElementById('trx-status-bayar').value,
+                status_berkas: document.getElementById('trx-status-berkas').value
+            };
+
+            if (id) {
+                db.collection('transaksi').doc(id).update(payload).then(() => closeModalTrx());
+            } else {
+                db.collection('transaksi').add(payload).then(() => closeModalTrx());
+            }
+        }
+
+        function deleteTransaksi(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus data transaksi ini?")) {
+                db.collection('transaksi').doc(id).delete();
+            }
+        }
+
+        function saveKlien(e) {
+            e.preventDefault();
+            const payload = {
+                nama: document.getElementById('klien-nama').value,
+                wa: document.getElementById('klien-wa').value,
+                alamat: document.getElementById('klien-alamat').value
+            };
+            db.collection('klien').add(payload).then(() => {
+                document.getElementById('form-klien').reset();
+                closeModalKlien();
+            });
+        }
+
+        function deleteKlien(id) {
+            if (confirm("Hapus data klien ini?")) db.collection('klien').doc(id).delete();
+        }
+
+        function saveConfig(e) {
+            e.preventDefault();
+            const payload = {
+                nama: document.getElementById('cfg-nama').value,
+                bca: document.getElementById('cfg-bca').value,
+                bpd: document.getElementById('cfg-bpd').value,
+                wa_template: document.getElementById('cfg-wa-template').value
+            };
+            db.collection('konfigurasi').doc('profile').set(payload).then(() => alert("Setelan berhasil disimpan!"));
+        }
+
+        // --- WA REMINDER INTEGRATION ---
+        function kirimWAReminder(wa, nama, layanan, detail, tgl) {
+            let template = configData.wa_template || "Halo {nama}, berkas {layanan} ({detail}) jatuh tempo tanggal {tanggal}.";
+            let pesan = template.replace('{nama}', nama)
+                                .replace('{layanan}', layanan)
+                                .replace('{detail}', detail || '-')
+                                .replace('{tanggal}', tgl);
+            
+            // Format HP ke standard internasional
+            let cleanWa = wa.replace(/[^0-9]/g, '');
+            if (cleanWa.startsWith('0')) cleanWa = '62' + cleanWa.substring(1);
+
+            // Buka tautan WhatsApp API
+            window.open(`https://wa.me/${cleanWa}?text=${encodeURIComponent(pesan)}`, '_blank');
+        }
+
+        // Init App
         switchPage('dashboard');
     </script>
 </body>
