@@ -1,19 +1,20 @@
-import { db } from './firebase.js'; // <--- TAMBAHKAN BARIS INI PADA BARIS PERTAMA!
+import { db } from './firebase.js';
 import { initKlienController } from './controllers/klien.js';
 import { initSetelanController } from './controllers/setelan.js';
 import { initTransaksiController } from './controllers/transaksi.js';
 import { initDashboardController } from './controllers/dashboard.js';
 
 export let isSidebarCollapsed = false;
+let isUserLoggedIn = false; // Fallback memori RAM khusus Mode Incognito
 
-// Kredensial Tunggal Owner Terkunci (Sesuai Permintaan Anda)
+// Kredensial Tunggal Owner Terkunci
 const TARGET_PHONE_WA = "62895428400665"; 
 const WA_API_SEND = "https://wa.mrdsolution.my.id/api/send-message";
 const WA_API_KEY = "7BC82018076500360255A4E0F78D52C7";
 const SENDER_SESSION = "botmrd"; 
 
 // =======================================================
-// 🔗 EJS-STYLE PARSER: FUNGSI INJEKSI ANAK INDEX AUTOMATIC
+// 🔗 EJS-STYLE PARSER: INJEKSI ANAK INDEX AUTOMATIC
 // =======================================================
 async function includeHTML() {
     const elements = document.querySelectorAll('[data-include]');
@@ -23,7 +24,6 @@ async function includeHTML() {
             const response = await fetch(file);
             if (response.ok) {
                 const htmlContent = await response.text();
-                // Gantikan tag penanda dengan isi file HTML anak index
                 el.outerHTML = htmlContent;
             }
         } catch (err) {
@@ -32,25 +32,39 @@ async function includeHTML() {
     }
 }
 
-// --- LOGIKA UTAMA OTENTIKASI OTP ---
+// --- LOGIKA UTAMA OTENTIKASI OTP (DILENGKAPI PROTEKSI INCOGNITO) ---
 function checkAuth() {
-    const isLogged = localStorage.getItem('sps_logged_in') === 'true';
+    let storageLogged = false;
+    try {
+        storageLogged = localStorage.getItem('sps_logged_in') === 'true';
+    } catch(e) {
+        // Abaikan jika LocalStorage diblokir di Incognito
+    }
+
+    const isLogged = isUserLoggedIn || storageLogged;
     const loginScreen = document.getElementById('login-screen');
     const appLayout = document.getElementById('app-layout');
 
     if (isLogged) {
-        loginScreen?.classList.add('hidden');
-        appLayout?.classList.remove('hidden');
+        // Paksa sembunyikan layar login dan tampilkan layout utama
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (appLayout) {
+            appLayout.classList.remove('hidden');
+            appLayout.style.display = 'flex';
+        }
     } else {
-        loginScreen?.classList.remove('hidden');
-        appLayout?.classList.add('hidden');
+        if (loginScreen) loginScreen.style.display = 'flex';
+        if (appLayout) appLayout.classList.add('hidden');
     }
 }
 
-async function handleRequestOTP() {
+async function handleRequestOTP(e) {
+    if (e) e.preventDefault();
     const btn = document.getElementById('btn-request-otp');
-    btn.disabled = true;
-    btn.innerText = "Mengirim...";
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Mengirim...";
+    }
 
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 300000; // Aktif 5 menit
@@ -66,20 +80,24 @@ async function handleRequestOTP() {
         
         await fetch(endpoint);
 
-        document.getElementById('area-request-otp').classList.add('hidden');
-        document.getElementById('area-verify-otp').classList.remove('hidden');
+        document.getElementById('area-request-otp')?.classList.add('hidden');
+        document.getElementById('area-verify-otp')?.classList.remove('hidden');
         startOtpTimer(300);
     } catch (err) {
         alert("Gagal memproses OTP: " + err.message);
-        btn.disabled = false;
-        btn.innerText = "Minta Kode OTP";
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
     }
 }
 
 async function handleVerifyOTP(e) {
-    if (e) e.preventDefault(); // Mencegah browser melakukan refresh halaman
+    if (e) e.preventDefault();
     
-    const inputOtp = document.getElementById('input-otp').value.trim();
+    const inputEl = document.getElementById('input-otp');
+    const inputOtp = inputEl ? inputEl.value.trim() : '';
+    
     if (!inputOtp) return alert("Silakan masukkan kode OTP!");
 
     try {
@@ -88,28 +106,29 @@ async function handleVerifyOTP(e) {
             const data = doc.data();
             const currentTime = Date.now();
 
-            // Konversi kedua kode ke String murni untuk mencegah error beda tipe data
             const savedCode = String(data.code || '').trim();
             const userCode = String(inputOtp).trim();
 
             if (savedCode === userCode && currentTime < data.expiresAt) {
-                // 1. Hentikan timer hitung mundur
                 clearInterval(timerInterval);
                 
-                // 2. Simpan status login permanen di browser
-                localStorage.setItem('sps_logged_in', 'true');
-                
-                // 3. Tampilkan Dashboard
+                // Simpan status login di RAM + LocalStorage jika diizinkan
+                isUserLoggedIn = true;
+                try {
+                    localStorage.setItem('sps_logged_in', 'true');
+                } catch(e) {}
+
+                alert("✅ Verifikasi Berhasil! Selamat datang di Biro Jasa SPS.");
                 checkAuth();
             } else {
                 if (currentTime >= data.expiresAt) {
-                    alert("Kode OTP sudah kedaluwarsa! Silakan minta kode OTP baru.");
+                    alert("❌ Kode OTP sudah kedaluwarsa! Silakan minta kode OTP baru.");
                 } else {
-                    alert("Kode OTP yang Anda masukkan salah!");
+                    alert("❌ Kode OTP yang Anda masukkan salah!");
                 }
             }
         } else {
-            alert("Sesi OTP tidak ditemukan di server!");
+            alert("❌ Sesi OTP tidak ditemukan di server!");
         }
     } catch (err) {
         alert("Gagal verifikasi: " + err.message);
@@ -133,22 +152,29 @@ function startOtpTimer(duration) {
 
         if (--timer < 0) {
             clearInterval(timerInterval);
-            document.getElementById('area-request-otp').classList.remove('hidden');
-            document.getElementById('area-verify-otp').classList.add('hidden');
-            document.getElementById('btn-request-otp').disabled = false;
-            document.getElementById('btn-request-otp').innerText = "Minta Kode OTP";
+            document.getElementById('area-request-otp')?.classList.remove('hidden');
+            document.getElementById('area-verify-otp')?.classList.add('hidden');
+            const btn = document.getElementById('btn-request-otp');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "Minta Kode OTP";
+            }
         }
     }, 1000);
 }
 
 function handleLogout() {
     if (confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
-        localStorage.removeItem('sps_logged_in');
+        isUserLoggedIn = false;
+        try { localStorage.removeItem('sps_logged_in'); } catch(e) {}
         checkAuth();
-        document.getElementById('area-request-otp').classList.remove('hidden');
-        document.getElementById('area-verify-otp').classList.add('hidden');
-        document.getElementById('btn-request-otp').disabled = false;
-        document.getElementById('btn-request-otp').innerText = "Minta Kode OTP";
+        document.getElementById('area-request-otp')?.classList.remove('hidden');
+        document.getElementById('area-verify-otp')?.classList.add('hidden');
+        const btn = document.getElementById('btn-request-otp');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
         clearInterval(timerInterval);
     }
 }
@@ -186,26 +212,26 @@ function toggleSidebar() {
     const menuTexts = document.querySelectorAll('.menu-text');
 
     if (!isSidebarCollapsed) {
-        sidebar.classList.remove('w-64');
-        sidebar.classList.add('w-20');
-        logoText.classList.add('hidden');
+        sidebar?.classList.remove('w-64');
+        sidebar?.classList.add('w-20');
+        logoText?.classList.add('hidden');
         menuTexts.forEach(text => text.classList.add('hidden'));
         isSidebarCollapsed = true;
     } else {
-        sidebar.classList.remove('w-20');
-        sidebar.classList.add('w-64');
-        logoText.classList.remove('hidden');
+        sidebar?.classList.remove('w-20');
+        sidebar?.classList.add('w-64');
+        logoText?.classList.remove('hidden');
         menuTexts.forEach(text => text.classList.remove('hidden'));
         isSidebarCollapsed = false;
     }
 }
 
-// Inisialisasi Event Listener Utama (Setelah Seluruh Anak Index Selesai Di-Inject)
+// Inisialisasi Utama
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Eksekusi penyatuan file anak index (EJS-Style)
+    // 1. Eksekusi penggabung komponen anak index
     await includeHTML();
 
-    // 2. Jalankan pengecekan otentikasi login
+    // 2. Cek status otentikasi login
     checkAuth();
 
     // 3. Hubungkan tombol otentikasi OTP
@@ -216,7 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
     document.getElementById('btn-logout-mobile')?.addEventListener('click', handleLogout);
 
-    // 5. Inisialisasi Seluruh Controller Dinamis
+    // 5. Inisialisasi Seluruh Controller
     initDashboardController();
     initTransaksiController();
     initKlienController();
@@ -234,6 +260,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnToggle = document.getElementById('btn-toggle-sidebar');
     if (btnToggle) btnToggle.addEventListener('click', toggleSidebar);
 
-    // Halaman default saat pertama kali dibuka
+    // Halaman awal
     switchPage('dashboard');
 });
