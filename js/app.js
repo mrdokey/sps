@@ -12,14 +12,16 @@ const VALID_USERNAME = "SpsBir0Jasa";
 const VALID_PASSWORD = "Sukses123#";
 
 // =======================================================
-// 🔗 EJS-STYLE PARSER: INJEKSI ANAK INDEX AUTOMATIC
+// 🔗 EJS-STYLE PARSER DENGAN CACHE-BUSTER (ANTI-CACHE)
 // =======================================================
 async function includeHTML() {
     const elements = document.querySelectorAll('[data-include]');
     for (const el of elements) {
         const file = el.getAttribute('data-include');
         try {
-            const response = await fetch(file);
+            // Trik ?v=timestamp memaksa browser selalu mengambil file HTML versi terbaru!
+            const cacheBuster = `?v=${Date.now()}`;
+            const response = await fetch(file + cacheBuster);
             if (response.ok) {
                 const htmlContent = await response.text();
                 el.outerHTML = htmlContent;
