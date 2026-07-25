@@ -1,7 +1,8 @@
 import { db } from '../firebase.js';
+import { sendWA } from '../utils/wa.js';
 
 let listTransaksi = [];
-let uploadedPhotos = []; // Array menampung banyak foto Base64
+let uploadedPhotos = [];
 let containerTrx, formTrx, modalTrx, selectLayanan;
 
 export function initTransaksiController() {
@@ -17,23 +18,23 @@ export function initTransaksiController() {
     selectLayanan?.addEventListener('change', handleLayananUiChange);
     formTrx?.addEventListener('submit', saveTransaksi);
 
-    // Event handler penambahan foto dokumen
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
-    document.getElementById('search-input')?.addEventListener('keyup', runFilter);
-    document.getElementById('filter-date')?.addEventListener('change', runFilter);
+    // Event listener Filter & Sorting
+    document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
+    document.getElementById('filter-date')?.addEventListener('change', runFilterAndSort);
+    document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
-    db.collection('transaksi').orderBy('tgl_masuk', 'desc').onSnapshot(snapshot => {
+    db.collection('transaksi').onSnapshot(snapshot => {
         listTransaksi = [];
         snapshot.forEach(doc => {
             listTransaksi.push({ id: doc.id, ...doc.data() });
         });
-        renderTransaksiList(listTransaksi);
+        runFilterAndSort();
     });
 }
 
-// LOGIKA UPLOAD & KOMPRESI BANYAK FOTO
 function handleFotoUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -43,7 +44,7 @@ function handleFotoUpload(e) {
         const img = new Image();
         img.onload = function() {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800; // Kompresi resolusi
+            const MAX_WIDTH = 800;
             const scaleSize = MAX_WIDTH / img.width;
             canvas.width = MAX_WIDTH;
             canvas.height = img.height * scaleSize;
@@ -52,12 +53,8 @@ function handleFotoUpload(e) {
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
             const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-            
-            // Tambahkan ke daftar array foto
             uploadedPhotos.push(compressedBase64);
             renderPhotoPreviews();
-
-            // Reset input file agar bisa pilih foto lain lagi
             e.target.value = '';
         };
         img.src = event.target.result;
@@ -90,7 +87,6 @@ window.removePhoto = function(index) {
     renderPhotoPreviews();
 };
 
-// LOGIKA PERUBAHAN LABEL FORMsesuai LAYANAN
 function handleLayananUiChange() {
     const layanan = selectLayanan ? selectLayanan.value : 'SAMSAT';
     const label1 = document.getElementById('label-field-1');
@@ -114,7 +110,6 @@ function handleLayananUiChange() {
         if (label2) label2.innerText = 'Keterangan Layanan';
         if (field2) field2.placeholder = 'Catatan rincian berkas';
     } else {
-        // SAMSAT, BALIK NAMA, MUTASI, KIR
         if (label1) label1.innerText = 'Plat Nomor / No. Polisi';
         if (field1) field1.placeholder = 'DK 1234 AB';
         if (label2) label2.innerText = 'Merek / Tipe Kendaraan';
@@ -146,11 +141,7 @@ function openModal(data = null) {
         document.getElementById('trx-status-bayar').value = data.status_bayar;
         document.getElementById('trx-status-berkas').value = data.status_berkas;
 
-        if (Array.isArray(data.fotos)) {
-            uploadedPhotos = [...data.fotos];
-        } else if (data.foto) {
-            uploadedPhotos = [data.foto];
-        }
+        if (Array.isArray(data.fotos)) uploadedPhotos = [...data.fotos];
         renderPhotoPreviews();
     }
 
@@ -166,13 +157,15 @@ async function saveTransaksi(e) {
     const nama = document.getElementById('trx-nama').value;
     const wa = document.getElementById('trx-wa').value;
     const alamat = document.getElementById('trx-alamat').value || '-';
+    const layanan = document.getElementById('trx-layanan').value;
+    const field1 = document.getElementById('trx-field-1').value;
 
     const payload = {
         nama: nama,
         wa: wa,
         alamat: alamat,
-        layanan: document.getElementById('trx-layanan').value,
-        field1: document.getElementById('trx-field-1').value,
+        layanan: layanan,
+        field1: field1,
         field2: document.getElementById('trx-field-2').value,
         tgl_masuk: document.getElementById('trx-tgl-masuk').value,
         tgl_tempo: document.getElementById('trx-tgl-tempo').value,
@@ -184,10 +177,19 @@ async function saveTransaksi(e) {
     };
 
     try {
+        let docRefId = id;
         if (id) {
             await db.collection('transaksi').doc(id).update(payload);
         } else {
-            await db.collection('transaksi').add(payload);
+            const docRef = await db.collection('transaksi').add(payload);
+            docRefId = docRef.id;
+
+            // 🌟 OTO-SEND LINK INVOICE KE WA KLIEN SAAT DAFTAR BARU
+            const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
+            const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
+            
+            // Kirim WA via VPS
+            sendWA(wa, pesanWaBaru);
         }
 
         // Auto-save/update ke Database Klien
@@ -195,9 +197,7 @@ async function saveTransaksi(e) {
         if (clientQuery.empty) {
             await db.collection('klien').add({ nama: nama, wa: wa, alamat: alamat });
         } else {
-            clientQuery.forEach(doc => {
-                db.collection('klien').doc(doc.id).update({ nama: nama, alamat: alamat });
-            });
+            clientQuery.forEach(doc => db.collection('klien').doc(doc.id).update({ nama: nama, alamat: alamat }));
         }
 
         closeModal();
@@ -206,17 +206,49 @@ async function saveTransaksi(e) {
     }
 }
 
+// 🌟 FUNGSI ACTION CEPAT "PROSES" & "SELESAI" WITH AUTO WA NOTIF
+window.updateStatusBerkas = async function(id, newStatus, tData) {
+    if (confirm(`Ubah status berkas ${tData.nama} menjadi ${newStatus}?`)) {
+        try {
+            await db.collection('transaksi').doc(id).update({ status_berkas: newStatus });
+
+            let infoBerkas = tData.field1 || '-';
+            let pesanStatus = "";
+
+            if (newStatus === 'PROSES') {
+                pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda saat ini *SEDANG DIPROSES* oleh tim Biro Jasa SPS. Terima kasih.`;
+            } else if (newStatus === 'SELESAI') {
+                pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
+            }
+
+            if (pesanStatus) {
+                const sendRes = await sendWA(tData.wa, pesanStatus);
+                if (sendRes) {
+                    alert(`Status diperbarui ke ${newStatus} & WA notifikasi sukses terkirim!`);
+                } else {
+                    alert(`Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`);
+                }
+            }
+        } catch (e) {
+            alert("Gagal memperbarui status: " + e.message);
+        }
+    }
+};
+
 function renderTransaksiList(data) {
     let html = '';
     data.forEach(t => {
         const info1 = t.field1 || '-';
         const info2 = t.field2 ? ` (${t.field2})` : '';
         const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
-        const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800';
+        const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : (t.status_berkas === 'PROSES' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800');
         
-        // Foto preview di kartu
-        const fotosList = Array.isArray(t.fotos) ? t.fotos : (t.foto ? [t.foto] : []);
-        const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Lampiran</span>` : '';
+        const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
+        const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
+
+        // Tampilan Tombol Action Cepat
+        const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
+        const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
 
         html += `
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
@@ -241,13 +273,24 @@ function renderTransaksiList(data) {
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-2 mt-4 pt-3 border-t">
-                    <button onclick='window.printInvoice(${JSON.stringify(t)})' class="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold">
-                        <i class="fa-solid fa-download mr-1"></i>PDF
-                    </button>
-                    <div class="flex gap-1.5">
-                        <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
-                        <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
+                <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
+                    <!-- Baris Tombol Action Cepat (Proses & Selesai) -->
+                    <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase">Ubah Status:</span>
+                        <div class="flex gap-1.5">
+                            ${btnActionProses}
+                            ${btnActionSelesai}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-2 mt-1">
+                        <button onclick='window.printInvoice(${JSON.stringify(t)})' class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
+                            <i class="fa-solid fa-download mr-1"></i>PDF
+                        </button>
+                        <div class="flex gap-1.5">
+                            <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
+                            <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -258,25 +301,41 @@ function renderTransaksiList(data) {
     }
 }
 
-function runFilter() {
-    const query = document.getElementById('search-input').value.toLowerCase();
-    const date = document.getElementById('filter-date').value;
+// 🌟 LOGIKA FILTER & SORTING MULTI-KRITERIA
+function runFilterAndSort() {
+    const query = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const date = document.getElementById('filter-date')?.value || '';
+    const sortBy = document.getElementById('sort-select')?.value || 'date-desc';
 
-    const filtered = listTransaksi.filter(t => {
-        const matchQuery = t.nama.toLowerCase().includes(query) || 
-                           t.layanan.toLowerCase().includes(query) || 
+    // 1. Filter Data
+    let filtered = listTransaksi.filter(t => {
+        const matchQuery = (t.nama || '').toLowerCase().includes(query) || 
+                           (t.layanan || '').toLowerCase().includes(query) || 
                            (t.field1 && t.field1.toLowerCase().includes(query)) ||
                            (t.field2 && t.field2.toLowerCase().includes(query));
         const matchDate = date ? t.tgl_masuk === date : true;
         return matchQuery && matchDate;
     });
+
+    // 2. Sorting Data
+    filtered.sort((a, b) => {
+        if (sortBy === 'date-desc') return (b.tgl_masuk || '').localeCompare(a.tgl_masuk || '');
+        if (sortBy === 'date-asc') return (a.tgl_masuk || '').localeCompare(b.tgl_masuk || '');
+        if (sortBy === 'nama-asc') return (a.nama || '').localeCompare(b.nama || '');
+        if (sortBy === 'nama-desc') return (b.nama || '').localeCompare(a.nama || '');
+        if (sortBy === 'total-desc') return (b.total || 0) - (a.total || 0);
+        if (sortBy === 'total-asc') return (a.total || 0) - (b.total || 0);
+        return 0;
+    });
+
     renderTransaksiList(filtered);
 }
 
 function resetFilter() {
-    document.getElementById('search-input').value = '';
-    document.getElementById('filter-date').value = '';
-    renderTransaksiList(listTransaksi);
+    if (document.getElementById('search-input')) document.getElementById('search-input').value = '';
+    if (document.getElementById('filter-date')) document.getElementById('filter-date').value = '';
+    if (document.getElementById('sort-select')) document.getElementById('sort-select').value = 'date-desc';
+    runFilterAndSort();
 }
 
 window.editTransaksi = function(data) { openModal(data); }
@@ -289,7 +348,6 @@ window.deleteTransaksi = async function(id) {
     }
 }
 
-// CETAK PDF INVOICE LANGSUNG DOWNLOAD
 window.printInvoice = function(t) {
     const sisa = t.total - t.bayar;
     const info1 = t.field1 || '-';
@@ -327,7 +385,7 @@ window.printInvoice = function(t) {
                 <tbody>
                     <tr><td style="padding: 8px 0;">Biaya ${t.layanan}</td><td style="padding: 8px 0; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
                     <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 8px 0; font-weight: bold;">Total Tagihan</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #ea580c;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
-                    <tr><td style="padding: 8px 0; color: #64748b;">Jumlah Dibayar</td><td style="padding: 8px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
+                    <tr><td style="padding: 8px 0; color: #64748b;">Jumlah Dibayarkan</td><td style="padding: 8px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
                     <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 8px 0; font-weight: bold;">Sisa Tagihan (Piutang)</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e11d48;">Rp ${sisa.toLocaleString('id-ID')}</td></tr>
                 </tbody>
             </table>

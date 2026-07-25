@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Digital - BIRO JASA SPS</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2pdf Bundle -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen p-4 flex flex-col items-center justify-center">
+
+    <div id="loading" class="text-center py-12">
+        <i class="fa-solid fa-spinner fa-spin text-3xl text-orange-600"></i>
+        <p class="text-xs text-gray-500 mt-2">Memuat Invoice...</p>
+    </div>
+
+    <!-- Container Card Invoice -->
+    <div id="invoice-card" class="bg-white max-w-lg w-full p-6 md:p-8 rounded-3xl shadow-xl border border-gray-100 hidden">
+        <div class="flex justify-between items-start border-b pb-4">
+            <div>
+                <h1 class="font-bold text-2xl text-orange-600">BIRO JASA SPS</h1>
+                <p class="text-xs text-gray-400">Sedana Permata Sari</p>
+            </div>
+            <div class="text-right">
+                <span id="inv-status-bayar" class="text-xs px-3 py-1 rounded-full font-bold uppercase bg-slate-100 text-gray-600">-</span>
+                <p id="inv-tgl" class="text-[10px] text-gray-400 mt-2">Tanggal: -</p>
+            </div>
+        </div>
+
+        <div class="my-6 text-sm space-y-1">
+            <p class="font-semibold">Nama Klien: <span id="inv-nama" class="font-normal text-gray-600">-</span></p>
+            <p class="font-semibold">Alamat: <span id="inv-alamat" class="font-normal text-gray-600">-</span></p>
+            <p class="font-semibold">Layanan: <span id="inv-layanan" class="font-normal text-gray-600">-</span></p>
+        </div>
+
+        <table class="w-full text-sm my-6 border-t border-b py-3">
+            <thead>
+                <tr class="text-left text-gray-400 uppercase text-[10px] tracking-wider border-b">
+                    <th class="py-2">RINCIAN LAYANAN</th>
+                    <th class="py-2 text-right">NOMINAL</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="inv-item-name" class="py-2.5 text-gray-700">Layanan</td>
+                    <td id="inv-total-1" class="py-2.5 text-right font-medium text-gray-800">Rp 0</td>
+                </tr>
+                <tr class="border-t">
+                    <td class="py-2.5 font-bold text-gray-800">Total Pembayaran</td>
+                    <td id="inv-total-2" class="py-2.5 text-right font-bold text-orange-600">Rp 0</td>
+                </tr>
+                <tr>
+                    <td class="py-2 text-gray-500">Jumlah Dibayarkan</td>
+                    <td id="inv-bayar" class="py-2 text-right text-emerald-600 font-semibold">Rp 0</td>
+                </tr>
+                <tr class="border-t">
+                    <td class="py-2.5 font-bold text-gray-800">Sisa Tagihan (Piutang)</td>
+                    <td id="inv-sisa" class="py-2.5 text-right font-bold text-rose-600">Rp 0</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="text-[11px] text-gray-500 leading-relaxed border-t pt-4 space-y-1">
+            <p class="font-bold text-gray-700 mb-1">Metode Pembayaran Transfer:</p>
+            <p>• BCA: 7720648207 a/n Ni Nyoman Suryani</p>
+            <p>• BPD: 013 02.02.18264-3 a/n Ni Nyoman Suryani</p>
+        </div>
+
+        <div class="mt-8 pt-4 border-t flex gap-2 justify-center">
+            <button onclick="downloadPdf()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-2xl shadow-md text-sm transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-download"></i>Download PDF Resmi
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyCDLuOEAGJRz4cfl8rn5JDrQOCehYE5SJg",
+          authDomain: "sps-birojasa.firebaseapp.com",
+          projectId: "sps-birojasa",
+          storageBucket: "sps-birojasa.firebasestorage.app",
+          messagingSenderId: "1076645783427",
+          appId: "1:1076645783427:web:9b944d08ec4a85682838b6"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let currentTrxData = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const docId = urlParams.get('id');
+
+            if (!docId) {
+                document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Link Invoice Tidak Valid!</p>';
+                return;
+            }
+
+            try {
+                const doc = await db.collection('transaksi').doc(docId).get();
+                if (doc.exists) {
+                    currentTrxData = { id: doc.id, ...doc.data() };
+                    renderInvoice(currentTrxData);
+                } else {
+                    document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Invoice Tidak Ditemukan!</p>';
+                }
+            } catch (e) {
+                document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Error Memuat Data!</p>';
+            }
+        });
+
+        function renderInvoice(t) {
+            const info1 = t.field1 || '-';
+            const info2 = t.field2 ? ` (${t.field2})` : '';
+            const sisa = (t.total || 0) - (t.bayar || 0);
+
+            document.getElementById('inv-status-bayar').innerText = t.status_bayar || 'BELUM BAYAR';
+            document.getElementById('inv-tgl').innerText = `Tanggal: ${t.tgl_masuk || '-'}`;
+            document.getElementById('inv-nama').innerText = t.nama || '-';
+            document.getElementById('inv-alamat').innerText = t.alamat || '-';
+            document.getElementById('inv-layanan').innerText = `${t.layanan} • ${info1}${info2}`;
+            
+            document.getElementById('inv-item-name').innerText = `Biaya ${t.layanan}`;
+            document.getElementById('inv-total-1').innerText = `Rp ${(t.total||0).toLocaleString('id-ID')}`;
+            document.getElementById('inv-total-2').innerText = `Rp ${(t.total||0).toLocaleString('id-ID')}`;
+            document.getElementById('inv-bayar').innerText = `Rp ${(t.bayar||0).toLocaleString('id-ID')}`;
+            document.getElementById('inv-sisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
+
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('invoice-card').classList.remove('hidden');
+        }
+
+        function downloadPdf() {
+            if (!currentTrxData) return;
+            const element = document.getElementById('invoice-card');
+            const opt = {
+                margin:       0.2,
+                filename:     `Invoice_${currentTrxData.nama.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>
