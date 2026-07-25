@@ -1,3 +1,4 @@
+import { db } from './firebase.js'; // <--- TAMBAHKAN BARIS INI PADA BARIS PERTAMA!
 import { initKlienController } from './controllers/klien.js';
 import { initSetelanController } from './controllers/setelan.js';
 import { initTransaksiController } from './controllers/transaksi.js';
