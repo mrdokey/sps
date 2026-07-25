@@ -76,7 +76,9 @@ async function handleRequestOTP() {
     }
 }
 
-async function handleVerifyOTP() {
+async function handleVerifyOTP(e) {
+    if (e) e.preventDefault(); // Mencegah browser melakukan refresh halaman
+    
     const inputOtp = document.getElementById('input-otp').value.trim();
     if (!inputOtp) return alert("Silakan masukkan kode OTP!");
 
@@ -86,14 +88,28 @@ async function handleVerifyOTP() {
             const data = doc.data();
             const currentTime = Date.now();
 
-            if (data.code === inputOtp && currentTime < data.expiresAt) {
+            // Konversi kedua kode ke String murni untuk mencegah error beda tipe data
+            const savedCode = String(data.code || '').trim();
+            const userCode = String(inputOtp).trim();
+
+            if (savedCode === userCode && currentTime < data.expiresAt) {
+                // 1. Hentikan timer hitung mundur
+                clearInterval(timerInterval);
+                
+                // 2. Simpan status login permanen di browser
                 localStorage.setItem('sps_logged_in', 'true');
+                
+                // 3. Tampilkan Dashboard
                 checkAuth();
             } else {
-                alert("Kode OTP salah atau telah kedaluwarsa!");
+                if (currentTime >= data.expiresAt) {
+                    alert("Kode OTP sudah kedaluwarsa! Silakan minta kode OTP baru.");
+                } else {
+                    alert("Kode OTP yang Anda masukkan salah!");
+                }
             }
         } else {
-            alert("Sesi OTP tidak valid!");
+            alert("Sesi OTP tidak ditemukan di server!");
         }
     } catch (err) {
         alert("Gagal verifikasi: " + err.message);
