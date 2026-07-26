@@ -349,20 +349,30 @@ window.deleteTransaksi = function(id) {
     });
 };
 
+// CETAK PDF INVOICE DENGAN KOP SURAT DINAMIS
 window.printInvoice = function(t) {
     const sisa = t.total - t.bayar;
     const info1 = t.field1 || '-';
     const info2 = t.field2 ? ` (${t.field2})` : '';
+
+    // Ambil data Kop Surat dari Setelan
+    const namaUsaha = configGlobal.nama || "BIRO JASA SPS";
+    const alamatKantor = configGlobal.alamat || "-";
+    const kontakKantor = configGlobal.kontak || "-";
+    const bcaInfo = configGlobal.bca || "-";
+    const bpdInfo = configGlobal.bpd || "-";
 
     const element = document.createElement('div');
     element.style.padding = '20px';
     element.style.fontFamily = 'sans-serif';
     element.innerHTML = `
         <div style="border: 1px solid #e2e8f0; padding: 24px; border-radius: 16px; max-width: 500px; margin: 0 auto; background: white;">
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px;">
+            <!-- KOP SURAT RESMI -->
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #ea580c; padding-bottom: 12px;">
                 <div>
-                    <h1 style="color: #ea580c; font-size: 20px; font-weight: bold; margin: 0;">BIRO JASA SPS</h1>
-                    <p style="color: #94a3b8; font-size: 11px; margin: 0;">Sedana Permata Sari</p>
+                    <h1 style="color: #ea580c; font-size: 18px; font-weight: bold; margin: 0;">${namaUsaha}</h1>
+                    <p style="color: #64748b; font-size: 10px; margin: 2px 0 0 0;">${alamatKantor}</p>
+                    <p style="color: #64748b; font-size: 10px; margin: 1px 0 0 0;">Telp/WA: ${kontakKantor}</p>
                 </div>
                 <div style="text-align: right;">
                     <span style="background: #f1f5f9; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${t.status_bayar}</span>
@@ -370,31 +380,34 @@ window.printInvoice = function(t) {
                 </div>
             </div>
 
-            <div style="margin: 20px 0; font-size: 13px; line-height: 1.6;">
+            <!-- RINCIAN KLIEN -->
+            <div style="margin: 16px 0; font-size: 12px; line-height: 1.6;">
                 <p style="margin: 2px 0;"><strong>Nama Klien:</strong> ${t.nama}</p>
-                <p style="margin: 2px 0;"><strong>Alamat:</strong> ${t.alamat || '-'}</p>
+                <p style="margin: 2px 0;"><strong>Alamat Klien:</strong> ${t.alamat || '-'}</p>
                 <p style="margin: 2px 0;"><strong>Layanan:</strong> ${t.layanan} • ${info1}${info2}</p>
             </div>
 
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse; margin: 20px 0;">
+            <!-- TABEL TAGIHAN -->
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse; margin: 16px 0;">
                 <thead>
                     <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #94a3b8; font-size: 10px;">
-                        <th style="padding: 8px 0;">RINCIAN LAYANAN</th>
-                        <th style="padding: 8px 0; text-align: right;">NOMINAL</th>
+                        <th style="padding: 6px 0;">RINCIAN LAYANAN</th>
+                        <th style="padding: 6px 0; text-align: right;">NOMINAL</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td style="padding: 8px 0;">Biaya ${t.layanan}</td><td style="padding: 8px 0; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
-                    <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 8px 0; font-weight: bold;">Total Tagihan</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #ea580c;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
-                    <tr><td style="padding: 8px 0; color: #64748b;">Jumlah Dibayar</td><td style="padding: 8px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
-                    <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 8px 0; font-weight: bold;">Sisa Tagihan (Piutang)</td><td style="padding: 8px 0; text-align: right; font-weight: bold; color: #e11d48;">Rp ${sisa.toLocaleString('id-ID')}</td></tr>
+                    <tr><td style="padding: 6px 0;">Biaya Pengurusan ${t.layanan}</td><td style="padding: 6px 0; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
+                    <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 6px 0; font-weight: bold;">Total Tagihan</td><td style="padding: 6px 0; text-align: right; font-weight: bold; color: #ea580c;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
+                    <tr><td style="padding: 6px 0; color: #64748b;">Jumlah Dibayar</td><td style="padding: 6px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
+                    <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 6px 0; font-weight: bold;">Sisa Tagihan (Piutang)</td><td style="padding: 6px 0; text-align: right; font-weight: bold; color: #e11d48;">Rp ${sisa.toLocaleString('id-ID')}</td></tr>
                 </tbody>
             </table>
 
-            <div style="font-size: 10px; color: #94a3b8; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 12px;">
-                <p style="font-weight: bold; color: #475569; margin: 0 0 4px 0;">Metode Pembayaran Transfer:</p>
-                <p style="margin: 1px 0;">• BCA: 7720648207 a/n Ni Nyoman Suryani</p>
-                <p style="margin: 1px 0;">• BPD: 013 02.02.18264-3 a/n Ni Nyoman Suryani</p>
+            <!-- METODE PEMBAYARAN -->
+            <div style="font-size: 10px; color: #94a3b8; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                <p style="font-weight: bold; color: #475569; margin: 0 0 4px 0;">Metode Pembayaran Transfer Bank:</p>
+                <p style="margin: 1px 0;">• BCA: ${bcaInfo}</p>
+                <p style="margin: 1px 0;">• BPD: ${bpdInfo}</p>
             </div>
         </div>
     `;

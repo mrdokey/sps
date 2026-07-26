@@ -2,29 +2,50 @@ import { db } from '../firebase.js';
 import { requestWAPairing } from '../utils/wa.js';
 
 let formConfig;
-export let configGlobal = {};
+
+// DATA DEFAULT OTOMATIS BERDASARKAN FOTO KARTU NAMA & DESK SIGN
+export let configGlobal = {
+    nama: "BIRO JASA SPS (SEDANA PERMATA SARI)",
+    alamat: "Jl. Utama Biro Jasa SPS, Denpasar - Bali",
+    kontak: "085237044224 / 085238010224",
+    bca: "7720648207 a/n Ni Nyoman Suryani",
+    bpd: "013 02.02.18264 - 3 a/n Ni Nyoman Suryani",
+    wa_template: "Halo {nama}, menginfokan bahwa pengurusan berkas {layanan} ({detail}) Anda di Biro Jasa SPS akan jatuh tempo pada tanggal {tanggal}. Mohon konfirmasinya untuk proses selanjutnya. Terima kasih."
+};
 
 export function initSetelanController() {
     formConfig = document.getElementById('form-config');
     formConfig?.addEventListener('submit', saveConfig);
 
     appendPairingSection();
+    appendResetDatabaseSection();
 
+    // Stream Data Realtime Konfigurasi
     db.collection('konfigurasi').doc('profile').onSnapshot(doc => {
         if (doc.exists) {
-            configGlobal = doc.data();
-            document.getElementById('cfg-nama').value = configGlobal.nama || '';
-            document.getElementById('cfg-bca').value = configGlobal.bca || '';
-            document.getElementById('cfg-bpd').value = configGlobal.bpd || '';
-            document.getElementById('cfg-wa-template').value = configGlobal.wa_template || '';
+            const data = doc.data();
+            configGlobal = { ...configGlobal, ...data };
         }
+        populateForm();
     });
+}
+
+function populateForm() {
+    if (!formConfig) return;
+    if (document.getElementById('cfg-nama')) document.getElementById('cfg-nama').value = configGlobal.nama;
+    if (document.getElementById('cfg-alamat')) document.getElementById('cfg-alamat').value = configGlobal.alamat;
+    if (document.getElementById('cfg-kontak')) document.getElementById('cfg-kontak').value = configGlobal.kontak;
+    if (document.getElementById('cfg-bca')) document.getElementById('cfg-bca').value = configGlobal.bca;
+    if (document.getElementById('cfg-bpd')) document.getElementById('cfg-bpd').value = configGlobal.bpd;
+    if (document.getElementById('cfg-wa-template')) document.getElementById('cfg-wa-template').value = configGlobal.wa_template;
 }
 
 async function saveConfig(e) {
     e.preventDefault();
     const payload = {
         nama: document.getElementById('cfg-nama').value,
+        alamat: document.getElementById('cfg-alamat').value,
+        kontak: document.getElementById('cfg-kontak').value,
         bca: document.getElementById('cfg-bca').value,
         bpd: document.getElementById('cfg-bpd').value,
         wa_template: document.getElementById('cfg-wa-template').value
@@ -32,9 +53,14 @@ async function saveConfig(e) {
 
     try {
         await db.collection('konfigurasi').doc('profile').set(payload);
-        alert("Setelan profil dan template berhasil disimpan!");
+        configGlobal = { ...payload };
+        if (window.showAlert) {
+            window.showAlert("Berhasil", "Setelan profil usaha dan kop surat berhasil disimpan!", "success");
+        }
     } catch (err) {
-        alert("Gagal menyimpan: " + err.message);
+        if (window.showAlert) {
+            window.showAlert("Gagal", err.message, "error");
+        }
     }
 }
 
@@ -61,7 +87,7 @@ function appendPairingSection() {
 
     document.getElementById('btn-request-pair')?.addEventListener('click', async () => {
         const phone = document.getElementById('pairing-phone').value;
-        if (!phone) return alert("Silakan masukkan nomor telepon terlebih dahulu.");
+        if (!phone) return window.showAlert("Perhatian", "Silakan masukkan nomor telepon terlebih dahulu.", "info");
 
         const btn = document.getElementById('btn-request-pair');
         btn.innerText = "Memproses...";
@@ -75,7 +101,46 @@ function appendPairingSection() {
             document.getElementById('pairing-code-box').innerText = code;
             document.getElementById('display-pairing-code').classList.remove('hidden');
         } else {
-            alert("Gagal mendapatkan kode. Pastikan server VPS aktif dan status belum tersambung.");
+            window.showAlert("Gagal", "Gagal mendapatkan kode. Pastikan server VPS aktif dan status belum tersambung.", "error");
         }
+    });
+}
+
+function appendResetDatabaseSection() {
+    const parent = formConfig?.parentElement;
+    if (!parent) return;
+
+    const resetDiv = document.createElement('div');
+    resetDiv.className = "bg-white p-6 rounded-2xl shadow-sm border border-rose-100 max-w-2xl mt-6 space-y-3 bg-rose-50/20";
+    resetDiv.innerHTML = `
+        <h3 class="text-base font-bold text-rose-800 border-b border-rose-100 pb-2"><i class="fa-solid fa-triangle-exclamation text-rose-600 mr-2"></i>Area Bahaya: Reset Database</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Gunakan tombol ini setelah masa pengujian selesai untuk membersihkan seluruh data dummy (Transaksi, Klien, dan Pengeluaran) sebelum aplikasi diserahkan ke klien.</p>
+        <button id="btn-reset-db-all" type="button" class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">
+            <i class="fa-solid fa-trash-can mr-2"></i>Bersihkan Semua Data Uji Coba
+        </button>
+    `;
+    parent.appendChild(resetDiv);
+
+    document.getElementById('btn-reset-db-all')?.addEventListener('click', () => {
+        window.showConfirm(
+            "⚠️ HAPUS SEMUA DATA DUMMY",
+            "Apakah Anda YAKIN ingin menghapus SELURUH data Transaksi, Klien, dan Buku Kas secara permanen? Tindakan ini tidak dapat dibatalkan!",
+            async () => {
+                try {
+                    const trxSnap = await db.collection('transaksi').get();
+                    trxSnap.forEach(doc => doc.ref.delete());
+
+                    const klienSnap = await db.collection('klien').get();
+                    klienSnap.forEach(doc => doc.ref.delete());
+
+                    const pSnap = await db.collection('pengeluaran').get();
+                    pSnap.forEach(doc => doc.ref.delete());
+
+                    window.showAlert("Berhasil Reset!", "Seluruh data uji coba telah dibersihkan total. Database sekarang 100% bersih dan siap digunakan produksi!", "success");
+                } catch (e) {
+                    window.showAlert("Gagal Reset", e.message, "error");
+                }
+            }
+        );
     });
 }

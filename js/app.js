@@ -17,6 +17,7 @@ const SENDER_SESSION = "botmrd";
 const ALLOWED_NUMBERS = [
     "62895428400665", // Nomor Kontrol Developer Anda
     "6285237044224", // Owner 1 (I Wayan Tiles Arnaya)
+    "6285238010224",
     
 ];
 
