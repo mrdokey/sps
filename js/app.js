@@ -8,12 +8,31 @@ import { initKeuanganController } from './controllers/keuangan.js';
 export let isSidebarCollapsed = false;
 let isUserLoggedIn = false;
 
-// Kredensial Hardcoded Bypass Login
-const VALID_USERNAME = "SpsBir0Jasa";
-const VALID_PASSWORD = "Sukses123#";
+// Kredensial WA Gateway
+const WA_API_SEND = "https://wa.mrdsolution.my.id/api/send-message";
+const WA_API_KEY = "7BC82018076500360255A4E0F78D52C7";
+const SENDER_SESSION = "botmrd"; 
 
-// VAPID Public Key Web Push Anda
+// DAFTAR NOMOR WA TERDAFTAR SEBAGAI PENGELOLA (DEVELOPER + OWNER)
+const ALLOWED_NUMBERS = [
+    "62895428400665", // Nomor Kontrol Developer Anda
+    "6285237044224", // Owner 1 (I Wayan Tiles Arnaya)
+    
+];
+
+// VAPID Public Key Web Push FCM
 const VAPID_PUBLIC_KEY = "BDHfqsMB-LXzpqeAdSasAmCZggCw4a0mHG0AVTayWbuUn3Hh11YOGeeGjtBC1mAvStBpyHGiEU-Kum8Hk5JNZKM";
+
+// 🧹 FUNGSI PEMBERSIH FORMAT NOMOR HANDPHONE
+function cleanPhoneNumber(phone) {
+    let cleaned = String(phone || '').replace(/\D/g, ''); // Hapus semua karakter non-angka
+    if (cleaned.startsWith('0')) {
+        cleaned = '62' + cleaned.substring(1);
+    } else if (cleaned.startsWith('8')) {
+        cleaned = '62' + cleaned;
+    }
+    return cleaned;
+}
 
 // =======================================================
 // 🛡️ CUSTOM DIALOG MODAL (TANPA TULISAN URL BROWSER)
@@ -83,33 +102,27 @@ window.closeCustomDialog = function() {
 };
 
 // =======================================================
-// 📲 INISIALISASI FCM PUSH NOTIFICATION (WEB PUSH WORKER)
+// 📲 FCM PUSH NOTIFICATION REGISTRATION
 // =======================================================
 async function initFCM() {
     try {
         if ('serviceWorker' in navigator && window.firebase && window.firebase.messaging) {
-            // Registrasi Service Worker latar belakang
             await navigator.serviceWorker.register('./firebase-messaging-sw.js');
-            
             const messaging = window.firebase.messaging();
-            
-            // Minta izin notifikasi HP
             const permission = await Notification.requestPermission();
             if (permission === 'granted') {
                 const token = await messaging.getToken({ vapidKey: VAPID_PUBLIC_KEY });
-
                 if (token) {
-                    // Simpan token HP Owner ke Firestore agar VPS bisa memicu push notification
                     await db.collection('admin_tokens').doc('owner').set({
                         fcm_token: token,
                         updatedAt: new Date().toISOString()
                     });
-                    console.log("✅ FCM Token HP Owner berhasil terdaftar di Firestore!");
+                    console.log("✅ FCM Token HP Owner terdaftar!");
                 }
             }
         }
     } catch (e) {
-        console.warn("FCM tidak aktif atau belum diizinkan:", e.message);
+        console.warn("FCM tidak aktif:", e.message);
     }
 }
 
@@ -165,30 +178,133 @@ function checkAuth() {
     }
 }
 
-// FUNGSI VERIFIKASI USERNAME & PASSWORD
-function handleLogin(e) {
+// 🔑 FUNGSI MINTA KODE OTP DENGAN CHECK WHITELIST & AUTO-CLEAN NUMBER
+async function handleRequestOTP(e) {
     if (e) {
         e.preventDefault();
         e.stopPropagation();
     }
+    
+    const rawPhone = document.getElementById('input-phone')?.value;
+    const cleanPhone = cleanPhoneNumber(rawPhone);
 
-    const usernameInput = document.getElementById('login-username')?.value.trim();
-    const passwordInput = document.getElementById('login-password')?.value;
-
-    if (!usernameInput || !passwordInput) {
-        return window.showAlert("Perhatian", "Silakan isi Username dan Password terlebih dahulu.", "info");
+    if (!cleanPhone) {
+        return window.showAlert("Perhatian", "Silakan masukkan nomor WhatsApp Anda terlebih dahulu!", "info");
     }
 
-    if (usernameInput === VALID_USERNAME && passwordInput === VALID_PASSWORD) {
-        isUserLoggedIn = true;
-        try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
-        try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
-
-        checkAuth();
-        switchPage('dashboard');
-    } else {
-        window.showAlert("Login Gagal", "Username atau Password yang Anda masukkan salah!", "error");
+    // CEK VALIDASI WHITELIST
+    if (!ALLOWED_NUMBERS.includes(cleanPhone)) {
+        return window.showAlert("Akses Ditolak", `Nomor ${cleanPhone} tidak terdaftar sebagai pengelola Biro Jasa SPS.`, "error");
     }
+
+    const btn = document.getElementById('btn-request-otp');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "Mengirim...";
+    }
+
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 300000; // Aktif 5 menit
+
+    try {
+        // Simpan OTP ke Firestore
+        await db.collection('login_otp').doc('sps_owner').set({
+            code: generatedOtp,
+            targetPhone: cleanPhone,
+            expiresAt: expiresAt
+        });
+
+        // Kirim pesan OTP via botmrd WA Gateway ke nomor terdaftar
+        const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda adalah: *${generatedOtp}*\n\n_Kode ini berlaku selama 5 menit. Jangan bagikan kepada siapa pun demi keamanan data._`;
+        const endpoint = `${WA_API_SEND}?key=${WA_API_KEY}&session=${SENDER_SESSION}&to=${cleanPhone}&text=${encodeURIComponent(messageText)}`;
+        
+        await fetch(endpoint);
+
+        window.showAlert("OTP Terkirim", `Kode OTP telah dikirimkan ke WhatsApp (${cleanPhone}).`, "success");
+
+        document.getElementById('area-request-otp')?.classList.add('hidden');
+        document.getElementById('area-verify-otp')?.classList.remove('hidden');
+        startOtpTimer(300);
+    } catch (err) {
+        window.showAlert("Gagal", "Gagal memproses OTP: " + err.message, "error");
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
+    }
+}
+
+// 🔐 FUNGSI VERIFIKASI KODE OTP
+async function handleVerifyOTP(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    const inputEl = document.getElementById('input-otp');
+    const inputOtp = inputEl ? inputEl.value.trim() : '';
+    
+    if (!inputOtp) return window.showAlert("Perhatian", "Silakan masukkan 6 digit kode OTP!", "info");
+
+    try {
+        const doc = await db.collection('login_otp').doc('sps_owner').get();
+        if (doc.exists) {
+            const data = doc.data();
+            const currentTime = Date.now();
+
+            const savedCode = String(data.code || '').trim();
+            const userCode = String(inputOtp).trim();
+
+            if (savedCode === userCode && currentTime < data.expiresAt) {
+                clearInterval(timerInterval);
+                
+                isUserLoggedIn = true;
+                try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+                try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+
+                checkAuth();
+                switchPage('dashboard');
+            } else {
+                if (currentTime >= data.expiresAt) {
+                    window.showAlert("Kedaluwarsa", "Kode OTP sudah kedaluwarsa! Silakan minta kode baru.", "error");
+                } else {
+                    window.showAlert("Salah", "Kode OTP yang Anda masukkan tidak cocok!", "error");
+                }
+            }
+        } else {
+            window.showAlert("Error", "Sesi OTP tidak ditemukan di server!", "error");
+        }
+    } catch (err) {
+        window.showAlert("Gagal", "Gagal verifikasi: " + err.message, "error");
+    }
+}
+
+let timerInterval;
+function startOtpTimer(duration) {
+    let timer = duration, minutes, seconds;
+    const timerDisplay = document.getElementById('otp-timer');
+    clearInterval(timerInterval);
+
+    timerInterval = setInterval(() => {
+        minutes = parseInt(timer / 60, 10);
+        seconds = parseInt(timer % 60, 10);
+
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
+
+        if (timerDisplay) timerDisplay.textContent = `Kode kedaluwarsa dalam: ${minutes}:${seconds}`;
+
+        if (--timer < 0) {
+            clearInterval(timerInterval);
+            document.getElementById('area-request-otp')?.classList.remove('hidden');
+            document.getElementById('area-verify-otp')?.classList.add('hidden');
+            const btn = document.getElementById('btn-request-otp');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "Minta Kode OTP";
+            }
+        }
+    }, 1000);
 }
 
 function handleLogout() {
@@ -197,14 +313,17 @@ function handleLogout() {
         try { localStorage.removeItem('sps_logged_in'); } catch(e) {}
         try { sessionStorage.removeItem('sps_logged_in'); } catch(e) {}
         checkAuth();
-        const userEl = document.getElementById('login-username');
-        const passEl = document.getElementById('login-password');
-        if (userEl) userEl.value = '';
-        if (passEl) passEl.value = '';
+        document.getElementById('area-request-otp')?.classList.remove('hidden');
+        document.getElementById('area-verify-otp')?.classList.add('hidden');
+        const btn = document.getElementById('btn-request-otp');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Minta Kode OTP";
+        }
+        clearInterval(timerInterval);
     });
 }
 
-// --- LOGIKA NAVIGASI PAGE ---
 export function switchPage(pageId) {
     document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
     const targetPage = document.getElementById(`page-${pageId}`);
@@ -251,33 +370,25 @@ function toggleSidebar() {
     }
 }
 
-// Inisialisasi Utama
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Injeksi komponen sisa
     await includeHTML();
 
-    // 2. Cek status otentikasi login
     checkAuth();
 
-    // 3. Panggil Inisialisasi FCM Notifikasi HP
     initFCM();
 
-    // 4. Hubungkan event listener login
-    document.getElementById('btn-login')?.addEventListener('click', handleLogin);
-    document.getElementById('form-login')?.addEventListener('submit', handleLogin);
+    document.getElementById('btn-request-otp')?.addEventListener('click', handleRequestOTP);
+    document.getElementById('btn-verify-otp')?.addEventListener('click', handleVerifyOTP);
 
-    // 5. Hubungkan tombol logout
     document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
     document.getElementById('btn-logout-mobile')?.addEventListener('click', handleLogout);
 
-    // 6. Inisialisasi Seluruh Controller
     initDashboardController();
     initTransaksiController();
     initKeuanganController();
     initKlienController();
     initSetelanController();
 
-    // 7. Pasang Navigasi Event Listener
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.getAttribute('data-page')));
     });
@@ -289,6 +400,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnToggle = document.getElementById('btn-toggle-sidebar');
     if (btnToggle) btnToggle.addEventListener('click', toggleSidebar);
 
-    // Halaman awal
     switchPage('dashboard');
 });
