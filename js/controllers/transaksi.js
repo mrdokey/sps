@@ -1,5 +1,6 @@
 import { db } from '../firebase.js';
 import { sendWA } from '../utils/wa.js';
+import { configGlobal } from './setelan.js';
 
 let listTransaksi = [];
 let uploadedPhotos = [];
@@ -20,12 +21,14 @@ export function initTransaksiController() {
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
+    // Event handler Filter & Sorting
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
+    // Realtime Stream Firestore
     db.collection('transaksi').onSnapshot(snapshot => {
         listTransaksi = [];
         snapshot.forEach(doc => {
@@ -186,11 +189,13 @@ async function saveTransaksi(e) {
             const docRef = await db.collection('transaksi').add(payload);
             docRefId = docRef.id;
 
+            // Auto Kirim Link Invoice Publik ke WA Klien
             const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
             const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
             sendWA(wa, pesanWaBaru);
         }
 
+        // Auto-save/update Klien
         const clientQuery = await db.collection('klien').where('wa', '==', wa).get();
         if (clientQuery.empty) {
             await db.collection('klien').add({ nama: nama, wa: wa, alamat: alamat });
@@ -199,9 +204,9 @@ async function saveTransaksi(e) {
         }
 
         closeModal();
-        window.showAlert("Sukses", "Data transaksi berhasil disimpan!", "success");
+        if (window.showAlert) window.showAlert("Sukses", "Data transaksi berhasil disimpan!", "success");
     } catch (err) {
-        window.showAlert("Gagal", err.message, "error");
+        if (window.showAlert) window.showAlert("Gagal", err.message, "error");
     }
 }
 
@@ -222,13 +227,13 @@ window.updateStatusBerkas = function(id, newStatus, tData) {
             if (pesanStatus) {
                 const sendRes = await sendWA(tData.wa, pesanStatus);
                 if (sendRes) {
-                    window.showAlert("Berhasil", `Status diperbarui ke ${newStatus} & WA notifikasi sukses terkirim!`, "success");
+                    if (window.showAlert) window.showAlert("Berhasil", `Status diperbarui ke ${newStatus} & WA notifikasi terkirim!`, "success");
                 } else {
-                    window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
+                    if (window.showAlert) window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
                 }
             }
         } catch (e) {
-            window.showAlert("Gagal", e.message, "error");
+            if (window.showAlert) window.showAlert("Gagal", e.message, "error");
         }
     });
 };
@@ -280,10 +285,11 @@ function renderTransaksiList(data) {
                     </div>
 
                     <div class="flex items-center justify-between gap-2 mt-1">
-<!-- TOMBOL PRIMA NOTA FOTO MODEL BARU -->
-<button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold border border-orange-200">
-    <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
-</button>
+                        <!-- HANYA MENAMPILKAN TOMBOL PRIMA NOTA KOPERASI -->
+                        <button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                            <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
+                        </button>
+
                         <div class="flex gap-1.5">
                             <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
                             <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
@@ -345,94 +351,20 @@ window.deleteTransaksi = function(id) {
     window.showConfirm("Hapus Transaksi", "Hapus data transaksi ini secara permanen?", async () => {
         try {
             await db.collection('transaksi').doc(id).delete();
-            window.showAlert("Terhapus", "Data transaksi berhasil dihapus.", "success");
-        } catch (err) { window.showAlert("Gagal", err.message, "error"); }
+            if (window.showAlert) window.showAlert("Terhapus", "Data transaksi berhasil dihapus.", "success");
+        } catch (err) { if (window.showAlert) window.showAlert("Gagal", err.message, "error"); }
     });
 };
 
-// CETAK PDF INVOICE DENGAN KOP SURAT DINAMIS
-window.printInvoice = function(t) {
-    const sisa = t.total - t.bayar;
-    const info1 = t.field1 || '-';
-    const info2 = t.field2 ? ` (${t.field2})` : '';
-
-    // Ambil data Kop Surat dari Setelan
-    const namaUsaha = configGlobal.nama || "BIRO JASA SPS";
-    const alamatKantor = configGlobal.alamat || "-";
-    const kontakKantor = configGlobal.kontak || "-";
-    const bcaInfo = configGlobal.bca || "-";
-    const bpdInfo = configGlobal.bpd || "-";
-
-    const element = document.createElement('div');
-    element.style.padding = '20px';
-    element.style.fontFamily = 'sans-serif';
-    element.innerHTML = `
-        <div style="border: 1px solid #e2e8f0; padding: 24px; border-radius: 16px; max-width: 500px; margin: 0 auto; background: white;">
-            <!-- KOP SURAT RESMI -->
-            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #ea580c; padding-bottom: 12px;">
-                <div>
-                    <h1 style="color: #ea580c; font-size: 18px; font-weight: bold; margin: 0;">${namaUsaha}</h1>
-                    <p style="color: #64748b; font-size: 10px; margin: 2px 0 0 0;">${alamatKantor}</p>
-                    <p style="color: #64748b; font-size: 10px; margin: 1px 0 0 0;">Telp/WA: ${kontakKantor}</p>
-                </div>
-                <div style="text-align: right;">
-                    <span style="background: #f1f5f9; padding: 4px 10px; border-radius: 12px; font-size: 10px; font-weight: bold; text-transform: uppercase;">${t.status_bayar}</span>
-                    <p style="color: #94a3b8; font-size: 10px; margin-top: 6px;">Tanggal: ${t.tgl_masuk}</p>
-                </div>
-            </div>
-
-            <!-- RINCIAN KLIEN -->
-            <div style="margin: 16px 0; font-size: 12px; line-height: 1.6;">
-                <p style="margin: 2px 0;"><strong>Nama Klien:</strong> ${t.nama}</p>
-                <p style="margin: 2px 0;"><strong>Alamat Klien:</strong> ${t.alamat || '-'}</p>
-                <p style="margin: 2px 0;"><strong>Layanan:</strong> ${t.layanan} • ${info1}${info2}</p>
-            </div>
-
-            <!-- TABEL TAGIHAN -->
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse; margin: 16px 0;">
-                <thead>
-                    <tr style="border-bottom: 1px solid #e2e8f0; text-align: left; color: #94a3b8; font-size: 10px;">
-                        <th style="padding: 6px 0;">RINCIAN LAYANAN</th>
-                        <th style="padding: 6px 0; text-align: right;">NOMINAL</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td style="padding: 6px 0;">Biaya Pengurusan ${t.layanan}</td><td style="padding: 6px 0; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
-                    <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 6px 0; font-weight: bold;">Total Tagihan</td><td style="padding: 6px 0; text-align: right; font-weight: bold; color: #ea580c;">Rp ${(t.total||0).toLocaleString('id-ID')}</td></tr>
-                    <tr><td style="padding: 6px 0; color: #64748b;">Jumlah Dibayar</td><td style="padding: 6px 0; text-align: right; color: #10b981; font-weight: 600;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td></tr>
-                    <tr style="border-top: 1px solid #f1f5f9;"><td style="padding: 6px 0; font-weight: bold;">Sisa Tagihan (Piutang)</td><td style="padding: 6px 0; text-align: right; font-weight: bold; color: #e11d48;">Rp ${sisa.toLocaleString('id-ID')}</td></tr>
-                </tbody>
-            </table>
-
-            <!-- METODE PEMBAYARAN -->
-            <div style="font-size: 10px; color: #94a3b8; line-height: 1.5; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-                <p style="font-weight: bold; color: #475569; margin: 0 0 4px 0;">Metode Pembayaran Transfer Bank:</p>
-                <p style="margin: 1px 0;">• BCA: ${bcaInfo}</p>
-                <p style="margin: 1px 0;">• BPD: ${bpdInfo}</p>
-            </div>
-        </div>
-    `;
-
-    const opt = {
-        margin:       0.3,
-        filename:     `Invoice_${t.nama.replace(/\s+/g, '_')}_${t.tgl_masuk}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(element).save();
-}
-
-// 📄 FUNGSI CETAK PRIMA NOTA RESMI FORMAT KOPERASI / BUKU TABUNGAN (PERSIS FOTO)
+// 📄 FUNGSI CETAK PRIMA NOTA RESMI FORMAT KOPERASI / BUKU TABUNGAN
 window.printPrimaNota = function(t) {
     const infoDetail = t.field1 || '-';
     const unitDetail = t.field2 ? ` (${t.field2})` : '';
     const sisa = (t.total || 0) - (t.bayar || 0);
 
-    const namaUsaha = configGlobal.nama || "BIRO JASA SPS (SEDANA PERMATA SARI)";
-    const alamatKantor = configGlobal.alamat || "JALAN ULUWATU, BALI";
-    const kontakKantor = configGlobal.kontak || "085237044224 / 085238010224";
+    const namaUsaha = (configGlobal && configGlobal.nama) ? configGlobal.nama : "BIRO JASA SPS (SEDANA PERMATA SARI)";
+    const alamatKantor = (configGlobal && configGlobal.alamat) ? configGlobal.alamat : "JALAN ULUWATU, BALI";
+    const kontakKantor = (configGlobal && configGlobal.kontak) ? configGlobal.kontak : "085237044224 / 085238010224";
 
     const element = document.createElement('div');
     element.style.padding = '20px';
@@ -469,7 +401,7 @@ window.printPrimaNota = function(t) {
                 </div>
             </div>
 
-            <!-- TABEL DETAIL RINCIAN TRANSAKSI (PERSIS FOTO) -->
+            <!-- TABEL DETAIL RINCIAN TRANSAKSI -->
             <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
                 <thead>
                     <tr style="background: #f1f5f9; text-align: center; font-weight: bold;">
@@ -492,7 +424,6 @@ window.printPrimaNota = function(t) {
                         <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
                         <td style="padding: 8px 4px; border: 1px solid #000; text-align: right; font-weight: bold;">Rp ${sisa.toLocaleString('id-ID')}</td>
                     </tr>
-                    <!-- TOTAL BARIS -->
                     <tr style="font-weight: bold; background: #f8fafc;">
                         <td colspan="4" style="padding: 6px; border: 1px solid #000; text-align: right;">TOTAL:</td>
                         <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
