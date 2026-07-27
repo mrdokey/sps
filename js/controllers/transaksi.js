@@ -162,7 +162,7 @@ function openModal(data = null) {
 
 function closeModal() { modalTrx?.classList.add('hidden'); }
 
-// 💵 MODAL BUKA ACTION PELUNASAN
+// 💵 BUKA MODAL ACTION PELUNASAN
 window.openPelunasanModal = function(tData) {
     currentPelunasanTrx = tData;
     formPelunasan?.reset();
@@ -181,13 +181,16 @@ window.openPelunasanModal = function(tData) {
 
 function closeModalPelunasan() { modalPelunasan?.classList.add('hidden'); }
 
-// 💵 EKSEKUSI PELUNASAN & KIRIM NOTA WA TERUPDATE
+// 💵 SIMPAN PELUNASAN & KIRIM NOTA TERUPDATE KE WA
 async function savePelunasan(e) {
     e.preventDefault();
     if (!currentPelunasanTrx) return;
 
     const nominalTambah = parseInt(document.getElementById('pelunasan-nominal').value) || 0;
-    if (nominalTambah <= 0) return window.showAlert("Perhatian", "Nominal pembayaran pelunasan harus lebih dari 0!", "info");
+    if (nominalTambah <= 0) {
+        if (window.showAlert) window.showAlert("Perhatian", "Nominal pembayaran pelunasan harus lebih dari 0!", "info");
+        return;
+    }
 
     const totalBaruBayar = (currentPelunasanTrx.bayar || 0) + nominalTambah;
     const isLunas = totalBaruBayar >= currentPelunasanTrx.total;
@@ -200,11 +203,11 @@ async function savePelunasan(e) {
             status_bayar: statusBayarBaru
         });
 
-        // 2. Kirim Pesan WA Tanda Terima Pelunasan ke Klien
+        // 2. Kirim WA Nota Terupdate ke Klien
         const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentPelunasanTrx.id}`;
         const infoDetail = currentPelunasanTrx.field1 || '-';
         
-        const pesanWA = `Halo *${currentPelunasanTrx.nama}*, terima kasih!\n\nPembayaran pelunasan sebesar *Rp ${nominalTambah.toLocaleString('id-ID')}* untuk pengurusan *${currentPelunasanTrx.layanan}* (${infoDetail}) telah *KAMI TERIMA*.\n\n• Status Pembayaran: *${statusBayarBaru}*\n• Total Sudah Dibayar: *Rp ${totalBaruBayar.toLocaleString('id-ID')}*\n\n📄 *Nota & Invoice Terupdate Anda dapat diakses di tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih atas kepercayaannya pada Biro Jasa SPS.`;
+        const pesanWA = `Halo *${currentPelunasanTrx.nama}*, terima kasih!\n\nPembayaran pelunasan sebesar *Rp ${nominalTambah.toLocaleString('id-ID')}* untuk pengurusan *${currentPelunasanTrx.layanan}* (${infoDetail}) telah *KAMI TERIMA*.\n\n• Status Pembayaran: *${statusBayarBaru}*\n• Total Sudah Dibayar: *Rp ${totalBaruBayar.toLocaleString('id-ID')}*\n\n📄 *Nota / Invoice Terupdate Anda dapat diakses di tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih atas kepercayaannya pada Biro Jasa SPS.`;
         
         sendWA(currentPelunasanTrx.wa, pesanWA);
 
@@ -269,31 +272,33 @@ async function saveTransaksi(e) {
 }
 
 window.updateStatusBerkas = function(id, newStatus, tData) {
-    window.showConfirm("Ubah Status Berkas", `Ubah status berkas ${tData.nama} menjadi ${newStatus}?`, async () => {
-        try {
-            await db.collection('transaksi').doc(id).update({ status_berkas: newStatus });
+    if (window.showConfirm) {
+        window.showConfirm("Ubah Status Berkas", `Ubah status berkas ${tData.nama} menjadi ${newStatus}?`, async () => {
+            try {
+                await db.collection('transaksi').doc(id).update({ status_berkas: newStatus });
 
-            let infoBerkas = tData.field1 || '-';
-            let pesanStatus = "";
+                let infoBerkas = tData.field1 || '-';
+                let pesanStatus = "";
 
-            if (newStatus === 'PROSES') {
-                pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda saat ini *SEDANG DIPROSES* oleh tim Biro Jasa SPS. Terima kasih.`;
-            } else if (newStatus === 'SELESAI') {
-                pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
-            }
-
-            if (pesanStatus) {
-                const sendRes = await sendWA(tData.wa, pesanStatus);
-                if (sendRes) {
-                    if (window.showAlert) window.showAlert("Berhasil", `Status diperbarui ke ${newStatus} & WA notifikasi terkirim!`, "success");
-                } else {
-                    if (window.showAlert) window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
+                if (newStatus === 'PROSES') {
+                    pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda saat ini *SEDANG DIPROSES* oleh tim Biro Jasa SPS. Terima kasih.`;
+                } else if (newStatus === 'SELESAI') {
+                    pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
                 }
+
+                if (pesanStatus) {
+                    const sendRes = await sendWA(tData.wa, pesanStatus);
+                    if (sendRes) {
+                        if (window.showAlert) window.showAlert("Berhasil", `Status diperbarui ke ${newStatus} & WA notifikasi terkirim!`, "success");
+                    } else {
+                        if (window.showAlert) window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
+                    }
+                }
+            } catch (e) {
+                if (window.showAlert) window.showAlert("Gagal", e.message, "error");
             }
-        } catch (e) {
-            if (window.showAlert) window.showAlert("Gagal", e.message, "error");
-        }
-    });
+        });
+    }
 };
 
 function renderTransaksiList(data) {
@@ -312,9 +317,9 @@ function renderTransaksiList(data) {
         const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
         const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
 
-        // Tombol Pelunasan (Hanya muncul jika sisa tagihan > 0 atau belum LUNAS)
-        const btnPelunasan = sisa > 0 ? `
-            <button onclick='window.openPelunasanModal(${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1">
+        // 🌟 TOMBOL PELUNASAN: Wajib tampil jika status_bayar BUKAN LUNAS
+        const btnPelunasan = (t.status_bayar !== 'LUNAS') ? `
+            <button onclick='window.openPelunasanModal(${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
                 <i class="fa-solid fa-hand-holding-dollar"></i>Pelunasan
             </button>
         ` : '';
@@ -416,12 +421,14 @@ function resetFilter() {
 window.editTransaksi = function(data) { openModal(data); }
 
 window.deleteTransaksi = function(id) {
-    window.showConfirm("Hapus Transaksi", "Hapus data transaksi ini secara permanen?", async () => {
-        try {
-            await db.collection('transaksi').doc(id).delete();
-            if (window.showAlert) window.showAlert("Terhapus", "Data transaksi berhasil dihapus.", "success");
-        } catch (err) { if (window.showAlert) window.showAlert("Gagal", err.message, "error"); }
-    });
+    if (window.showConfirm) {
+        window.showConfirm("Hapus Transaksi", "Hapus data transaksi ini secara permanen?", async () => {
+            try {
+                await db.collection('transaksi').doc(id).delete();
+                if (window.showAlert) window.showAlert("Terhapus", "Data transaksi berhasil dihapus.", "success");
+            } catch (err) { if (window.showAlert) window.showAlert("Gagal", err.message, "error"); }
+        });
+    }
 };
 
 window.printPrimaNota = function(t) {
