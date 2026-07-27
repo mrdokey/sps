@@ -280,9 +280,10 @@ function renderTransaksiList(data) {
                     </div>
 
                     <div class="flex items-center justify-between gap-2 mt-1">
-                        <button onclick='window.printInvoice(${JSON.stringify(t)})' class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
-                            <i class="fa-solid fa-download mr-1"></i>PDF
-                        </button>
+<!-- TOMBOL PRIMA NOTA FOTO MODEL BARU -->
+<button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-lg text-xs font-bold border border-orange-200">
+    <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
+</button>
                         <div class="flex gap-1.5">
                             <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
                             <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
@@ -422,3 +423,109 @@ window.printInvoice = function(t) {
 
     html2pdf().set(opt).from(element).save();
 }
+
+// 📄 FUNGSI CETAK PRIMA NOTA RESMI FORMAT KOPERASI / BUKU TABUNGAN (PERSIS FOTO)
+window.printPrimaNota = function(t) {
+    const infoDetail = t.field1 || '-';
+    const unitDetail = t.field2 ? ` (${t.field2})` : '';
+    const sisa = (t.total || 0) - (t.bayar || 0);
+
+    const namaUsaha = configGlobal.nama || "BIRO JASA SPS (SEDANA PERMATA SARI)";
+    const alamatKantor = configGlobal.alamat || "JALAN ULUWATU, BALI";
+    const kontakKantor = configGlobal.kontak || "085237044224 / 085238010224";
+
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = 'Arial, sans-serif';
+    element.innerHTML = `
+        <div style="border: 1px solid #000; padding: 20px; max-width: 650px; margin: 0 auto; background: white; color: #000;">
+            
+            <!-- HEADER KOP NOTA -->
+            <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
+                <h2 style="margin: 0; font-size: 15px; font-weight: bold; text-transform: uppercase;">${namaUsaha}</h2>
+                <p style="margin: 2px 0 0 0; font-size: 10px;">${alamatKantor} • Telp/WA: ${kontakKantor}</p>
+                <h3 style="margin: 8px 0 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">PRIMA NOTA TRANSAKSI BERKAS</h3>
+            </div>
+
+            <!-- BOX METADATA BERJAJAR (SIDE BY SIDE PERSIS FOTO) -->
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; font-size: 11px;">
+                <!-- BOX KIRI -->
+                <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="width: 85px; font-weight: bold;">No. Order</td><td>: ${t.id ? t.id.substring(0, 8).toUpperCase() : 'SPS-001'}</td></tr>
+                        <tr><td style="font-weight: bold;">Nama Klien</td><td>: <strong>${t.nama}</strong></td></tr>
+                        <tr><td style="font-weight: bold;">Alamat KTP</td><td>: ${t.alamat || '-'}</td></tr>
+                        <tr><td style="font-weight: bold;">No. Telp/HP</td><td>: ${t.wa}</td></tr>
+                    </table>
+                </div>
+                <!-- BOX KANAN -->
+                <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="width: 85px; font-weight: bold;">Layanan</td><td>: <strong>${t.layanan}</strong></td></tr>
+                        <tr><td style="font-weight: bold;">Detail Berkas</td><td>: ${infoDetail}${unitDetail}</td></tr>
+                        <tr><td style="font-weight: bold;">Tgl Masuk</td><td>: ${t.tgl_masuk}</td></tr>
+                        <tr><td style="font-weight: bold;">Jatuh Tempo</td><td>: ${t.tgl_tempo || '-'}</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TABEL DETAIL RINCIAN TRANSAKSI (PERSIS FOTO) -->
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
+                <thead>
+                    <tr style="background: #f1f5f9; text-align: center; font-weight: bold;">
+                        <th style="padding: 6px; border: 1px solid #000; width: 25px;">No</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 75px;">Tanggal</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 45px;">Kode</th>
+                        <th style="padding: 6px; border: 1px solid #000;">Keterangan Transaksi</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 85px;">Total Tagihan</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 85px;">Jumlah Dibayar</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 85px;">Sisa Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="text-align: center;">
+                        <td style="padding: 8px 4px; border: 1px solid #000;">1</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000;">${t.tgl_masuk}</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000;">${t.layanan ? t.layanan.substring(0,3) : 'SPS'}</td>
+                        <td style="padding: 8px 6px; border: 1px solid #000; text-align: left;">Pengurusan ${t.layanan} (${infoDetail}${unitDetail})</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right; font-weight: bold;">Rp ${sisa.toLocaleString('id-ID')}</td>
+                    </tr>
+                    <!-- TOTAL BARIS -->
+                    <tr style="font-weight: bold; background: #f8fafc;">
+                        <td colspan="4" style="padding: 6px; border: 1px solid #000; text-align: right;">TOTAL:</td>
+                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${sisa.toLocaleString('id-ID')}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- AREA TANDA TANGAN DUAL -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-size: 10px;">
+                <div style="text-align: center; width: 180px;">
+                    <p style="margin: 0;">Penerima Berkas / Klien,</p>
+                    <div style="height: 50px;"></div>
+                    <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( ${t.nama} )</p>
+                </div>
+                <div style="text-align: center; width: 200px;">
+                    <p style="margin: 0;">Petugas Biro Jasa SPS,</p>
+                    <div style="height: 50px;"></div>
+                    <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( Ni Nyoman Suryani )</p>
+                </div>
+            </div>
+
+        </div>
+    `;
+
+    const opt = {
+        margin:       0.2,
+        filename:     `PrimaNota_${t.nama.replace(/\s+/g, '_')}_${t.tgl_masuk}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+};
