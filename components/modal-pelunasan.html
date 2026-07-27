@@ -1,0 +1,35 @@
+<div id="modal-pelunasan" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i>Pelunasan / Bayar Sisa
+            </h3>
+            <button id="btn-close-modal-pelunasan" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+
+        <form id="form-pelunasan" class="space-y-3">
+            <input type="hidden" id="pelunasan-trx-id">
+            
+            <div class="bg-slate-50 p-3.5 rounded-xl space-y-1 text-xs text-gray-600 border border-slate-100">
+                <p><strong>Nama Klien:</strong> <span id="pelunasan-nama" class="text-gray-900 font-semibold">-</span></p>
+                <p><strong>Layanan:</strong> <span id="pelunasan-layanan" class="text-gray-900 font-semibold">-</span></p>
+                <p><strong>Sisa Tagihan Saat Ini:</strong> <span id="pelunasan-sisa" class="font-bold text-rose-600 text-sm">Rp 0</span></p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Pembayaran Pelunasan *</label>
+                <input type="date" id="pelunasan-tgl" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Nominal Pembayaran Tambahan (Rp) *</label>
+                <input type="number" id="pelunasan-nominal" placeholder="Masukkan nominal bayar" class="w-full px-3 py-2 border border-emerald-300 bg-emerald-50/30 rounded-xl text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500" required>
+            </div>
+
+            <div class="pt-3 flex justify-end gap-2 border-t mt-4">
+                <button type="button" id="btn-cancel-pelunasan" class="px-4 py-2 border rounded-xl text-sm font-medium text-gray-600">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow">Simpan Pelunasan</button>
+            </div>
+        </form>
+    </div>
+</div>

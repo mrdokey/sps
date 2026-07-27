@@ -4,7 +4,9 @@ import { configGlobal } from './setelan.js';
 
 let listTransaksi = [];
 let uploadedPhotos = [];
+let currentPelunasanTrx = null;
 let containerTrx, formTrx, modalTrx, selectLayanan;
+let formPelunasan, modalPelunasan;
 
 export function initTransaksiController() {
     containerTrx = document.getElementById('container-transaksi');
@@ -12,23 +14,28 @@ export function initTransaksiController() {
     modalTrx = document.getElementById('modal-trx');
     selectLayanan = document.getElementById('trx-layanan');
 
+    formPelunasan = document.getElementById('form-pelunasan');
+    modalPelunasan = document.getElementById('modal-pelunasan');
+
     document.getElementById('btn-open-add-trx')?.addEventListener('click', () => openModal());
     document.getElementById('btn-close-modal-trx')?.addEventListener('click', closeModal);
     document.getElementById('btn-cancel-trx')?.addEventListener('click', closeModal);
 
+    document.getElementById('btn-close-modal-pelunasan')?.addEventListener('click', closeModalPelunasan);
+    document.getElementById('btn-cancel-pelunasan')?.addEventListener('click', closeModalPelunasan);
+
     selectLayanan?.addEventListener('change', handleLayananUiChange);
     formTrx?.addEventListener('submit', saveTransaksi);
+    formPelunasan?.addEventListener('submit', savePelunasan);
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
-    // Event handler Filter & Sorting
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
-    // Realtime Stream Firestore
     db.collection('transaksi').onSnapshot(snapshot => {
         listTransaksi = [];
         snapshot.forEach(doc => {
@@ -155,6 +162,59 @@ function openModal(data = null) {
 
 function closeModal() { modalTrx?.classList.add('hidden'); }
 
+// 💵 MODAL BUKA ACTION PELUNASAN
+window.openPelunasanModal = function(tData) {
+    currentPelunasanTrx = tData;
+    formPelunasan?.reset();
+
+    const sisa = (tData.total || 0) - (tData.bayar || 0);
+
+    document.getElementById('pelunasan-trx-id').value = tData.id;
+    document.getElementById('pelunasan-nama').innerText = tData.nama;
+    document.getElementById('pelunasan-layanan').innerText = `${tData.layanan} (${tData.field1 || '-'})`;
+    document.getElementById('pelunasan-sisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
+    document.getElementById('pelunasan-tgl').value = new Date().toISOString().split('T')[0];
+    document.getElementById('pelunasan-nominal').value = sisa > 0 ? sisa : 0;
+
+    modalPelunasan?.classList.remove('hidden');
+};
+
+function closeModalPelunasan() { modalPelunasan?.classList.add('hidden'); }
+
+// 💵 EKSEKUSI PELUNASAN & KIRIM NOTA WA TERUPDATE
+async function savePelunasan(e) {
+    e.preventDefault();
+    if (!currentPelunasanTrx) return;
+
+    const nominalTambah = parseInt(document.getElementById('pelunasan-nominal').value) || 0;
+    if (nominalTambah <= 0) return window.showAlert("Perhatian", "Nominal pembayaran pelunasan harus lebih dari 0!", "info");
+
+    const totalBaruBayar = (currentPelunasanTrx.bayar || 0) + nominalTambah;
+    const isLunas = totalBaruBayar >= currentPelunasanTrx.total;
+    const statusBayarBaru = isLunas ? "LUNAS" : "DP";
+
+    try {
+        // 1. Update data transaksi di Firestore
+        await db.collection('transaksi').doc(currentPelunasanTrx.id).update({
+            bayar: totalBaruBayar,
+            status_bayar: statusBayarBaru
+        });
+
+        // 2. Kirim Pesan WA Tanda Terima Pelunasan ke Klien
+        const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentPelunasanTrx.id}`;
+        const infoDetail = currentPelunasanTrx.field1 || '-';
+        
+        const pesanWA = `Halo *${currentPelunasanTrx.nama}*, terima kasih!\n\nPembayaran pelunasan sebesar *Rp ${nominalTambah.toLocaleString('id-ID')}* untuk pengurusan *${currentPelunasanTrx.layanan}* (${infoDetail}) telah *KAMI TERIMA*.\n\n• Status Pembayaran: *${statusBayarBaru}*\n• Total Sudah Dibayar: *Rp ${totalBaruBayar.toLocaleString('id-ID')}*\n\n📄 *Nota & Invoice Terupdate Anda dapat diakses di tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih atas kepercayaannya pada Biro Jasa SPS.`;
+        
+        sendWA(currentPelunasanTrx.wa, pesanWA);
+
+        closeModalPelunasan();
+        if (window.showAlert) window.showAlert("Pelunasan Berhasil!", `Pembayaran Rp ${nominalTambah.toLocaleString('id-ID')} berhasil dicatat & WA Nota Terupdate telah terkirim!`, "success");
+    } catch (err) {
+        if (window.showAlert) window.showAlert("Gagal", err.message, "error");
+    }
+}
+
 async function saveTransaksi(e) {
     e.preventDefault();
     const id = document.getElementById('trx-id').value;
@@ -189,13 +249,11 @@ async function saveTransaksi(e) {
             const docRef = await db.collection('transaksi').add(payload);
             docRefId = docRef.id;
 
-            // Auto Kirim Link Invoice Publik ke WA Klien
             const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
             const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
             sendWA(wa, pesanWaBaru);
         }
 
-        // Auto-save/update Klien
         const clientQuery = await db.collection('klien').where('wa', '==', wa).get();
         if (clientQuery.empty) {
             await db.collection('klien').add({ nama: nama, wa: wa, alamat: alamat });
@@ -243,6 +301,8 @@ function renderTransaksiList(data) {
     data.forEach(t => {
         const info1 = t.field1 || '-';
         const info2 = t.field2 ? ` (${t.field2})` : '';
+        const sisa = (t.total || 0) - (t.bayar || 0);
+
         const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
         const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : (t.status_berkas === 'PROSES' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800');
         
@@ -251,6 +311,13 @@ function renderTransaksiList(data) {
 
         const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
         const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
+
+        // Tombol Pelunasan (Hanya muncul jika sisa tagihan > 0 atau belum LUNAS)
+        const btnPelunasan = sisa > 0 ? `
+            <button onclick='window.openPelunasanModal(${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1">
+                <i class="fa-solid fa-hand-holding-dollar"></i>Pelunasan
+            </button>
+        ` : '';
 
         html += `
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
@@ -272,20 +339,21 @@ function renderTransaksiList(data) {
                     <div class="mt-4 pt-3 border-t text-xs space-y-1">
                         <div class="flex justify-between text-gray-500"><span>Total Tagihan:</span><span>Rp ${(t.total||0).toLocaleString('id-ID')}</span></div>
                         <div class="flex justify-between text-gray-500"><span>Sudah Dibayar:</span><span>Rp ${(t.bayar||0).toLocaleString('id-ID')}</span></div>
+                        <div class="flex justify-between font-bold text-rose-600"><span>Sisa Piutang:</span><span>Rp ${sisa.toLocaleString('id-ID')}</span></div>
                     </div>
                 </div>
 
                 <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
                     <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase">Ubah Status:</span>
-                        <div class="flex gap-1.5">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase">Aksi Berkas:</span>
+                        <div class="flex gap-1.5 items-center">
+                            ${btnPelunasan}
                             ${btnActionProses}
                             ${btnActionSelesai}
                         </div>
                     </div>
 
                     <div class="flex items-center justify-between gap-2 mt-1">
-                        <!-- HANYA MENAMPILKAN TOMBOL PRIMA NOTA KOPERASI -->
                         <button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
                             <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
                         </button>
@@ -356,7 +424,6 @@ window.deleteTransaksi = function(id) {
     });
 };
 
-// 📄 FUNGSI CETAK PRIMA NOTA RESMI FORMAT KOPERASI / BUKU TABUNGAN
 window.printPrimaNota = function(t) {
     const infoDetail = t.field1 || '-';
     const unitDetail = t.field2 ? ` (${t.field2})` : '';
@@ -371,17 +438,13 @@ window.printPrimaNota = function(t) {
     element.style.fontFamily = 'Arial, sans-serif';
     element.innerHTML = `
         <div style="border: 1px solid #000; padding: 20px; max-width: 650px; margin: 0 auto; background: white; color: #000;">
-            
-            <!-- HEADER KOP NOTA -->
             <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
                 <h2 style="margin: 0; font-size: 15px; font-weight: bold; text-transform: uppercase;">${namaUsaha}</h2>
                 <p style="margin: 2px 0 0 0; font-size: 10px;">${alamatKantor} • Telp/WA: ${kontakKantor}</p>
                 <h3 style="margin: 8px 0 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">PRIMA NOTA TRANSAKSI BERKAS</h3>
             </div>
 
-            <!-- BOX METADATA BERJAJAR (SIDE BY SIDE PERSIS FOTO) -->
             <div style="display: flex; gap: 8px; margin-bottom: 12px; font-size: 11px;">
-                <!-- BOX KIRI -->
                 <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr><td style="width: 85px; font-weight: bold;">No. Order</td><td>: ${t.id ? t.id.substring(0, 8).toUpperCase() : 'SPS-001'}</td></tr>
@@ -390,7 +453,6 @@ window.printPrimaNota = function(t) {
                         <tr><td style="font-weight: bold;">No. Telp/HP</td><td>: ${t.wa}</td></tr>
                     </table>
                 </div>
-                <!-- BOX KANAN -->
                 <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr><td style="width: 85px; font-weight: bold;">Layanan</td><td>: <strong>${t.layanan}</strong></td></tr>
@@ -401,7 +463,6 @@ window.printPrimaNota = function(t) {
                 </div>
             </div>
 
-            <!-- TABEL DETAIL RINCIAN TRANSAKSI -->
             <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
                 <thead>
                     <tr style="background: #f1f5f9; text-align: center; font-weight: bold;">
@@ -433,7 +494,6 @@ window.printPrimaNota = function(t) {
                 </tbody>
             </table>
 
-            <!-- AREA TANDA TANGAN DUAL -->
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-size: 10px;">
                 <div style="text-align: center; width: 180px;">
                     <p style="margin: 0;">Penerima Berkas / Klien,</p>
@@ -446,7 +506,6 @@ window.printPrimaNota = function(t) {
                     <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( Ni Nyoman Suryani )</p>
                 </div>
             </div>
-
         </div>
     `;
 
