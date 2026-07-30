@@ -126,16 +126,24 @@
                         <button id="btn-open-add-trx" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2"><i class="fa-solid fa-plus"></i>Tambah Transaksi Baru</button>
                     </div>
                     
-                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <!-- BARIS FILTER & SORTING TRANSAKSI BARU -->
+                    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
                         <div class="relative lg:col-span-2">
                             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
-                            <input id="search-input" type="text" placeholder="Cari nama, plat, atau layanan..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
+                            <input id="search-input" type="text" placeholder="Cari nama, plat, layanan..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
                         </div>
                         <div>
                             <input id="filter-date-start" type="date" title="Dari Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
                         </div>
                         <div>
                             <input id="filter-date-end" type="date" title="Sampai Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
+                        </div>
+                        <div>
+                            <select id="filter-bayar-status" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
+                                <option value="ALL">Semua Status Bayar</option>
+                                <option value="BELUM_LUNAS">Belum Lunas / DP</option>
+                                <option value="LUNAS">Lunas</option>
+                            </select>
                         </div>
                         <div class="flex gap-2">
                             <select id="sort-select" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
@@ -145,12 +153,14 @@
                                 <option value="nama-desc">Nama (Z-A)</option>
                                 <option value="total-desc">Nominal Max</option>
                                 <option value="total-asc">Nominal Min</option>
+                                <option value="piutang-desc">Piutang Terbesar</option>
                             </select>
                             <button id="btn-reset-filter" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium">Reset</button>
                         </div>
                     </div>
 
-                    <div id="container-transaksi" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><p class="text-sm text-gray-400 italic col-span-full">Memuat data transaksi...</p></div>
+                    <!-- CONTAINER GRUP BERKAS ACCORDION -->
+                    <div id="container-transaksi" class="space-y-4"><p class="text-sm text-gray-400 italic text-center py-8">Memuat data transaksi...</p></div>
                 </section>
 
                 <!-- ================= HALAMAN: KEUANGAN ================= -->

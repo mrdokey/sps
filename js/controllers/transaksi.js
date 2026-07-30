@@ -8,6 +8,18 @@ let currentPelunasanTrx = null;
 let containerTrx, formTrx, modalTrx, selectLayanan;
 let formPelunasan, modalPelunasan;
 
+// STATUS ACCORDION GROUPING (DEFAULT ALL COLLAPSED / TERTUTUP)
+let groupCollapsed = {
+    PENDING: true,
+    PROSES: true,
+    SELESAI: true
+};
+
+window.toggleGroup = function(statusGroup) {
+    groupCollapsed[statusGroup] = !groupCollapsed[statusGroup];
+    runFilterAndSort();
+};
+
 export function initTransaksiController() {
     containerTrx = document.getElementById('container-transaksi');
     formTrx = document.getElementById('form-trx');
@@ -30,9 +42,11 @@ export function initTransaksiController() {
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
+    // Event handler Filter & Sorting
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
+    document.getElementById('filter-bayar-status')?.addEventListener('change', runFilterAndSort);
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
@@ -162,7 +176,6 @@ function openModal(data = null) {
 
 function closeModal() { modalTrx?.classList.add('hidden'); }
 
-// 💵 BUKA MODAL ACTION PELUNASAN
 window.openPelunasanModal = function(tData) {
     currentPelunasanTrx = tData;
     formPelunasan?.reset();
@@ -181,7 +194,6 @@ window.openPelunasanModal = function(tData) {
 
 function closeModalPelunasan() { modalPelunasan?.classList.add('hidden'); }
 
-// 💵 SIMPAN PELUNASAN & KIRIM NOTA TERUPDATE KE WA
 async function savePelunasan(e) {
     e.preventDefault();
     if (!currentPelunasanTrx) return;
@@ -197,13 +209,11 @@ async function savePelunasan(e) {
     const statusBayarBaru = isLunas ? "LUNAS" : "DP";
 
     try {
-        // 1. Update data transaksi di Firestore
         await db.collection('transaksi').doc(currentPelunasanTrx.id).update({
             bayar: totalBaruBayar,
             status_bayar: statusBayarBaru
         });
 
-        // 2. Kirim WA Nota Terupdate ke Klien
         const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentPelunasanTrx.id}`;
         const infoDetail = currentPelunasanTrx.field1 || '-';
         
@@ -301,86 +311,143 @@ window.updateStatusBerkas = function(id, newStatus, tData) {
     }
 };
 
+// 🌟 LOGIKA RENDER ACCORDION GROUPING (PENDING -> PROSES -> SELESAI)
 function renderTransaksiList(data) {
-    let html = '';
+    if (!containerTrx) return;
+
+    // Struktur Urutan Grup Resmi
+    const groups = [
+        { key: 'PENDING', label: 'Berkas PENDING', bg: 'bg-amber-500', text: 'text-amber-900', bgLight: 'bg-amber-50/80 border-amber-200', icon: 'fa-regular fa-clock', items: [] },
+        { key: 'PROSES', label: 'Berkas PROSES', bg: 'bg-blue-600', text: 'text-blue-900', bgLight: 'bg-blue-50/80 border-blue-200', icon: 'fa-solid fa-spinner', items: [] },
+        { key: 'SELESAI', label: 'Berkas SELESAI', bg: 'bg-emerald-600', text: 'text-emerald-900', bgLight: 'bg-emerald-50/80 border-emerald-200', icon: 'fa-solid fa-circle-check', items: [] }
+    ];
+
+    // Masukkan data ke dalam masing-masing grup
     data.forEach(t => {
-        const info1 = t.field1 || '-';
-        const info2 = t.field2 ? ` (${t.field2})` : '';
-        const sisa = (t.total || 0) - (t.bayar || 0);
+        const statusKey = (t.status_berkas || 'PENDING').toUpperCase();
+        const group = groups.find(g => g.key === statusKey) || groups[0];
+        group.items.push(t);
+    });
 
-        const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
-        const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : (t.status_berkas === 'PROSES' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800');
-        
-        const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
-        const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
+    let mainHtml = '';
+    let totalAllItems = data.length;
 
-        const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
-        const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
+    if (totalAllItems === 0) {
+        containerTrx.innerHTML = '<p class="text-sm text-gray-400 italic text-center py-8">Transaksi tidak ditemukan.</p>';
+        return;
+    }
 
-        // 🌟 TOMBOL PELUNASAN: Wajib tampil jika status_bayar BUKAN LUNAS
-        const btnPelunasan = (t.status_bayar !== 'LUNAS') ? `
-            <button onclick='window.openPelunasanModal(${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
-                <i class="fa-solid fa-hand-holding-dollar"></i>Pelunasan
-            </button>
-        ` : '';
+    groups.forEach(g => {
+        const count = g.items.length;
+        const isCollapsed = groupCollapsed[g.key];
+        const chevronIcon = isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down';
 
-        html += `
-            <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
-                <div>
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar}</span>
-                        <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBerkas}">${t.status_berkas}</span>
-                    </div>
+        let cardsHtml = '';
+        g.items.forEach(t => {
+            const info1 = t.field1 || '-';
+            const info2 = t.field2 ? ` (${t.field2})` : '';
+            const sisa = (t.total || 0) - (t.bayar || 0);
+
+            const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
+            const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : (t.status_berkas === 'PROSES' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800');
+            
+            const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
+            const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
+
+            const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
+            const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
+
+            const btnPelunasan = (t.status_bayar !== 'LUNAS') ? `
+                <button onclick='window.openPelunasanModal(${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>Pelunasan
+                </button>
+            ` : '';
+
+            cardsHtml += `
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div>
-                        <h3 class="font-bold text-gray-800 text-base mt-1">${t.nama}</h3>
-                        <p class="text-xs text-orange-600 font-semibold mt-0.5">${t.layanan} • ${info1}${info2}</p>
-                        <p class="text-xs text-gray-400 mt-1"><i class="fa-solid fa-location-dot mr-1"></i>Alamat: ${t.alamat || '-'}</p>
-                        <div class="mt-2 flex items-center gap-2">
-                            <span class="text-xs text-gray-400"><i class="fa-solid fa-calendar mr-1"></i>${t.tgl_masuk}</span>
-                            ${fotoBadge}
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar}</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBerkas}">${t.status_berkas}</span>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-800 text-base mt-1">${t.nama}</h3>
+                            <p class="text-xs text-orange-600 font-semibold mt-0.5">${t.layanan} • ${info1}${info2}</p>
+                            <p class="text-xs text-gray-400 mt-1"><i class="fa-solid fa-location-dot mr-1"></i>Alamat: ${t.alamat || '-'}</p>
+                            <div class="mt-2 flex items-center gap-2">
+                                <span class="text-xs text-gray-400"><i class="fa-solid fa-calendar mr-1"></i>${t.tgl_masuk}</span>
+                                ${fotoBadge}
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-3 border-t text-xs space-y-1">
+                            <div class="flex justify-between text-gray-500"><span>Total Tagihan:</span><span>Rp ${(t.total||0).toLocaleString('id-ID')}</span></div>
+                            <div class="flex justify-between text-gray-500"><span>Sudah Dibayar:</span><span>Rp ${(t.bayar||0).toLocaleString('id-ID')}</span></div>
+                            <div class="flex justify-between font-bold text-rose-600"><span>Sisa Piutang:</span><span>Rp ${sisa.toLocaleString('id-ID')}</span></div>
                         </div>
                     </div>
-                    
-                    <div class="mt-4 pt-3 border-t text-xs space-y-1">
-                        <div class="flex justify-between text-gray-500"><span>Total Tagihan:</span><span>Rp ${(t.total||0).toLocaleString('id-ID')}</span></div>
-                        <div class="flex justify-between text-gray-500"><span>Sudah Dibayar:</span><span>Rp ${(t.bayar||0).toLocaleString('id-ID')}</span></div>
-                        <div class="flex justify-between font-bold text-rose-600"><span>Sisa Piutang:</span><span>Rp ${sisa.toLocaleString('id-ID')}</span></div>
+
+                    <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
+                        <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">Aksi Berkas:</span>
+                            <div class="flex gap-1.5 items-center">
+                                ${btnPelunasan}
+                                ${btnActionProses}
+                                ${btnActionSelesai}
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2 mt-1">
+                            <button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                                <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
+                            </button>
+
+                            <div class="flex gap-1.5">
+                                <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
+                                <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            `;
+        });
 
-                <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
-                    <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase">Aksi Berkas:</span>
-                        <div class="flex gap-1.5 items-center">
-                            ${btnPelunasan}
-                            ${btnActionProses}
-                            ${btnActionSelesai}
+        const contentDisplayClass = isCollapsed ? 'hidden' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3';
+
+        mainHtml += `
+            <div class="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+                <button onclick="window.toggleGroup('${g.key}')" class="w-full flex items-center justify-between p-4 ${g.bgLight} transition hover:opacity-90 cursor-pointer">
+                    <div class="flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-xl ${g.bg} text-white flex items-center justify-center text-sm shadow-sm">
+                            <i class="${g.icon}"></i>
+                        </span>
+                        <div class="text-left">
+                            <h3 class="font-bold ${g.text} text-sm tracking-wide">${g.label}</h3>
+                            <span class="text-[11px] text-gray-500 font-medium">${count} Berkas Terdaftar</span>
                         </div>
                     </div>
-
-                    <div class="flex items-center justify-between gap-2 mt-1">
-                        <button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
-                            <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
-                        </button>
-
-                        <div class="flex gap-1.5">
-                            <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
-                            <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
-                        </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs bg-white/90 px-3 py-1 rounded-full text-gray-700 font-extrabold border shadow-sm">${count}</span>
+                        <i class="fa-solid ${chevronIcon} text-gray-400 text-sm ml-1"></i>
                     </div>
+                </button>
+                
+                <div class="${contentDisplayClass} p-4 bg-slate-50/50 border-t border-gray-100">
+                    ${count > 0 ? cardsHtml : '<p class="text-xs text-gray-400 italic col-span-full text-center py-4">Tidak ada berkas di status ini.</p>'}
                 </div>
             </div>
         `;
     });
-    if (containerTrx) {
-        containerTrx.innerHTML = html || '<p class="text-sm text-gray-400 italic col-span-full text-center py-8">Transaksi tidak ditemukan.</p>';
-    }
+
+    containerTrx.innerHTML = mainHtml;
 }
 
+// 🌟 LOGIKA FILTER & SORTING DATA
 function runFilterAndSort() {
     const query = (document.getElementById('search-input')?.value || '').toLowerCase();
     const startDate = document.getElementById('filter-date-start')?.value || '';
     const endDate = document.getElementById('filter-date-end')?.value || '';
+    const statusBayarFilter = document.getElementById('filter-bayar-status')?.value || 'ALL';
     const sortBy = document.getElementById('sort-select')?.value || 'date-desc';
 
     let filtered = listTransaksi.filter(t => {
@@ -394,16 +461,27 @@ function runFilterAndSort() {
         else if (startDate) matchDate = t.tgl_masuk >= startDate;
         else if (endDate) matchDate = t.tgl_masuk <= endDate;
 
-        return matchQuery && matchDate;
+        let matchBayar = true;
+        if (statusBayarFilter === 'LUNAS') {
+            matchBayar = t.status_bayar === 'LUNAS';
+        } else if (statusBayarFilter === 'BELUM_LUNAS') {
+            matchBayar = t.status_bayar !== 'LUNAS';
+        }
+
+        return matchQuery && matchDate && matchBayar;
     });
 
     filtered.sort((a, b) => {
+        const sisaA = (a.total || 0) - (a.bayar || 0);
+        const sisaB = (b.total || 0) - (b.bayar || 0);
+
         if (sortBy === 'date-desc') return (b.tgl_masuk || '').localeCompare(a.tgl_masuk || '');
         if (sortBy === 'date-asc') return (a.tgl_masuk || '').localeCompare(b.tgl_masuk || '');
         if (sortBy === 'nama-asc') return (a.nama || '').localeCompare(b.nama || '');
         if (sortBy === 'nama-desc') return (b.nama || '').localeCompare(a.nama || '');
         if (sortBy === 'total-desc') return (b.total || 0) - (a.total || 0);
         if (sortBy === 'total-asc') return (a.total || 0) - (b.total || 0);
+        if (sortBy === 'piutang-desc') return sisaB - sisaA;
         return 0;
     });
 
@@ -414,6 +492,7 @@ function resetFilter() {
     if (document.getElementById('search-input')) document.getElementById('search-input').value = '';
     if (document.getElementById('filter-date-start')) document.getElementById('filter-date-start').value = '';
     if (document.getElementById('filter-date-end')) document.getElementById('filter-date-end').value = '';
+    if (document.getElementById('filter-bayar-status')) document.getElementById('filter-bayar-status').value = 'ALL';
     if (document.getElementById('sort-select')) document.getElementById('sort-select').value = 'date-desc';
     runFilterAndSort();
 }
