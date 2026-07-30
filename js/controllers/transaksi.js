@@ -8,16 +8,11 @@ let currentPelunasanTrx = null;
 let containerTrx, formTrx, modalTrx, selectLayanan;
 let formPelunasan, modalPelunasan;
 
-// STATUS ACCORDION GROUPING (DEFAULT ALL COLLAPSED / TERTUTUP)
+// STATUS ACCORDION GROUPING (PENDING & PROSES Terbuka Default, SELESAI Tertutup)
 let groupCollapsed = {
-    PENDING: true,
-    PROSES: true,
-    SELESAI: true
-};
-
-window.toggleGroup = function(statusGroup) {
-    groupCollapsed[statusGroup] = !groupCollapsed[statusGroup];
-    runFilterAndSort();
+    PENDING: false, // Terbuka agar berkas aktif langsung kelihatan
+    PROSES: false,  // Terbuka agar berkas proses langsung kelihatan
+    SELESAI: true   // Tertutup agar ringkas
 };
 
 export function initTransaksiController() {
@@ -49,6 +44,21 @@ export function initTransaksiController() {
     document.getElementById('filter-bayar-status')?.addEventListener('change', runFilterAndSort);
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
+
+    // 🌟 NATIVE EVENT DELEGATION ANTI-FAIL UNTUK BUKA-TUTUP ACCORDION
+    if (containerTrx && !containerTrx.getAttribute('data-event-attached')) {
+        containerTrx.setAttribute('data-event-attached', 'true');
+        containerTrx.addEventListener('click', (e) => {
+            const headerBtn = e.target.closest('.group-header-btn');
+            if (headerBtn) {
+                const groupKey = headerBtn.getAttribute('data-group-key');
+                if (groupKey) {
+                    groupCollapsed[groupKey] = !groupCollapsed[groupKey];
+                    runFilterAndSort();
+                }
+            }
+        });
+    }
 
     db.collection('transaksi').onSnapshot(snapshot => {
         listTransaksi = [];
@@ -311,18 +321,16 @@ window.updateStatusBerkas = function(id, newStatus, tData) {
     }
 };
 
-// 🌟 LOGIKA RENDER ACCORDION GROUPING (PENDING -> PROSES -> SELESAI)
+// 🌟 LOGIKA ACCORDION GROUPING (PENDING -> PROSES -> SELESAI)
 function renderTransaksiList(data) {
     if (!containerTrx) return;
 
-    // Struktur Urutan Grup Resmi
     const groups = [
         { key: 'PENDING', label: 'Berkas PENDING', bg: 'bg-amber-500', text: 'text-amber-900', bgLight: 'bg-amber-50/80 border-amber-200', icon: 'fa-regular fa-clock', items: [] },
         { key: 'PROSES', label: 'Berkas PROSES', bg: 'bg-blue-600', text: 'text-blue-900', bgLight: 'bg-blue-50/80 border-blue-200', icon: 'fa-solid fa-spinner', items: [] },
         { key: 'SELESAI', label: 'Berkas SELESAI', bg: 'bg-emerald-600', text: 'text-emerald-900', bgLight: 'bg-emerald-50/80 border-emerald-200', icon: 'fa-solid fa-circle-check', items: [] }
     ];
 
-    // Masukkan data ke dalam masing-masing grup
     data.forEach(t => {
         const statusKey = (t.status_berkas || 'PENDING').toUpperCase();
         const group = groups.find(g => g.key === statusKey) || groups[0];
@@ -416,8 +424,9 @@ function renderTransaksiList(data) {
 
         mainHtml += `
             <div class="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                <button onclick="window.toggleGroup('${g.key}')" class="w-full flex items-center justify-between p-4 ${g.bgLight} transition hover:opacity-90 cursor-pointer">
-                    <div class="flex items-center gap-3">
+                <!-- BUTTON EVENT DELEGATION -->
+                <button type="button" data-group-key="${g.key}" class="group-header-btn w-full flex items-center justify-between p-4 ${g.bgLight} transition hover:opacity-90 cursor-pointer">
+                    <div class="flex items-center gap-3 pointer-events-none">
                         <span class="w-8 h-8 rounded-xl ${g.bg} text-white flex items-center justify-center text-sm shadow-sm">
                             <i class="${g.icon}"></i>
                         </span>
@@ -426,7 +435,7 @@ function renderTransaksiList(data) {
                             <span class="text-[11px] text-gray-500 font-medium">${count} Berkas Terdaftar</span>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 pointer-events-none">
                         <span class="text-xs bg-white/90 px-3 py-1 rounded-full text-gray-700 font-extrabold border shadow-sm">${count}</span>
                         <i class="fa-solid ${chevronIcon} text-gray-400 text-sm ml-1"></i>
                     </div>
@@ -442,7 +451,6 @@ function renderTransaksiList(data) {
     containerTrx.innerHTML = mainHtml;
 }
 
-// 🌟 LOGIKA FILTER & SORTING DATA
 function runFilterAndSort() {
     const query = (document.getElementById('search-input')?.value || '').toLowerCase();
     const startDate = document.getElementById('filter-date-start')?.value || '';
@@ -574,8 +582,8 @@ window.printPrimaNota = function(t) {
                     <tr style="font-weight: bold; background: #f8fafc;">
                         <td colspan="4" style="padding: 6px; border: 1px solid #000; text-align: right;">TOTAL:</td>
                         <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${sisa.toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${sisa.toLocaleString('id-ID')}</td>
                     </tr>
                 </tbody>
             </table>
