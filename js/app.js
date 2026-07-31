@@ -401,5 +401,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnToggle = document.getElementById('btn-toggle-sidebar');
     if (btnToggle) btnToggle.addEventListener('click', toggleSidebar);
 
-    switchPage('dashboard');
+    // 🔒 BUKA HALAMAN TERAKHIR SEBELUM DIREFRESH
+    let initialPage = 'dashboard';
+    const hashPage = window.location.hash.replace('#', '').trim();
+    const savedPage = sessionStorage.getItem('sps_active_page');
+
+    if (hashPage && ['dashboard', 'transaksi', 'keuangan', 'klien', 'setelan'].includes(hashPage)) {
+        initialPage = hashPage;
+    } else if (savedPage && ['dashboard', 'transaksi', 'keuangan', 'klien', 'setelan'].includes(savedPage)) {
+        initialPage = savedPage;
+    }
+
+    switchPage(initialPage);
 });
