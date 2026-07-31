@@ -17,8 +17,8 @@ const SENDER_SESSION = "botmrd";
 const ALLOWED_NUMBERS = [
     "62895428400665", // Nomor Kontrol Developer Anda
     "6285237044224", // Owner 1 (I Wayan Tiles Arnaya)
-    "6285238010224",
-    
+    "6285238010224", // Owner 2 (Ni Nyoman Suryani)
+    "6282342834885"  // Wulan JNE
 ];
 
 // VAPID Public Key Web Push FCM
@@ -26,7 +26,7 @@ const VAPID_PUBLIC_KEY = "BDHfqsMB-LXzpqeAdSasAmCZggCw4a0mHG0AVTayWbuUn3Hh11YOGe
 
 // 🧹 FUNGSI PEMBERSIH FORMAT NOMOR HANDPHONE
 function cleanPhoneNumber(phone) {
-    let cleaned = String(phone || '').replace(/\D/g, ''); // Hapus semua karakter non-angka
+    let cleaned = String(phone || '').replace(/\D/g, ''); 
     if (cleaned.startsWith('0')) {
         cleaned = '62' + cleaned.substring(1);
     } else if (cleaned.startsWith('8')) {
@@ -179,7 +179,7 @@ function checkAuth() {
     }
 }
 
-// 🔑 FUNGSI MINTA KODE OTP DENGAN CHECK WHITELIST & AUTO-CLEAN NUMBER
+// 🔑 FUNGSI MINTA KODE OTP
 async function handleRequestOTP(e) {
     if (e) {
         e.preventDefault();
@@ -193,7 +193,6 @@ async function handleRequestOTP(e) {
         return window.showAlert("Perhatian", "Silakan masukkan nomor WhatsApp Anda terlebih dahulu!", "info");
     }
 
-    // CEK VALIDASI WHITELIST
     if (!ALLOWED_NUMBERS.includes(cleanPhone)) {
         return window.showAlert("Akses Ditolak", `Nomor ${cleanPhone} tidak terdaftar sebagai pengelola Biro Jasa SPS.`, "error");
     }
@@ -205,17 +204,15 @@ async function handleRequestOTP(e) {
     }
 
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 300000; // Aktif 5 menit
+    const expiresAt = Date.now() + 300000;
 
     try {
-        // Simpan OTP ke Firestore
         await db.collection('login_otp').doc('sps_owner').set({
             code: generatedOtp,
             targetPhone: cleanPhone,
             expiresAt: expiresAt
         });
 
-        // Kirim pesan OTP via botmrd WA Gateway ke nomor terdaftar
         const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda adalah: *${generatedOtp}*\n\n_Kode ini berlaku selama 5 menit. Jangan bagikan kepada siapa pun demi keamanan data._`;
         const endpoint = `${WA_API_SEND}?key=${WA_API_KEY}&session=${SENDER_SESSION}&to=${cleanPhone}&text=${encodeURIComponent(messageText)}`;
         
@@ -264,7 +261,11 @@ async function handleVerifyOTP(e) {
                 try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
 
                 checkAuth();
-                switchPage('dashboard');
+                
+                let targetPage = 'dashboard';
+                const savedPage = sessionStorage.getItem('sps_active_page');
+                if (savedPage) targetPage = savedPage;
+                switchPage(targetPage);
             } else {
                 if (currentTime >= data.expiresAt) {
                     window.showAlert("Kedaluwarsa", "Kode OTP sudah kedaluwarsa! Silakan minta kode baru.", "error");
@@ -313,6 +314,7 @@ function handleLogout() {
         isUserLoggedIn = false;
         try { localStorage.removeItem('sps_logged_in'); } catch(e) {}
         try { sessionStorage.removeItem('sps_logged_in'); } catch(e) {}
+        try { sessionStorage.removeItem('sps_active_page'); } catch(e) {}
         checkAuth();
         document.getElementById('area-request-otp')?.classList.remove('hidden');
         document.getElementById('area-verify-otp')?.classList.add('hidden');
@@ -325,10 +327,20 @@ function handleLogout() {
     });
 }
 
+// 🔒 LOGIKA NAVIGASI PAGE DENGAN SISTEM KUNCI REFRESH
 export function switchPage(pageId) {
+    const validPages = ['dashboard', 'transaksi', 'keuangan', 'klien', 'setelan'];
+    if (!validPages.includes(pageId)) pageId = 'dashboard';
+
     document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
     const targetPage = document.getElementById(`page-${pageId}`);
     if (targetPage) targetPage.classList.remove('hidden');
+
+    // 🌟 KUNCI MEMORI REFRESH PENTING
+    try {
+        history.replaceState(null, null, `#${pageId}`);
+        sessionStorage.setItem('sps_active_page', pageId);
+    } catch(e) {}
 
     document.querySelectorAll('.nav-btn').forEach(btn => {
         if (btn.getAttribute('data-page') === pageId) {
