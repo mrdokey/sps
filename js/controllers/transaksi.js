@@ -8,11 +8,15 @@ let currentPelunasanTrx = null;
 let containerTrx, formTrx, modalTrx, selectLayanan;
 let formPelunasan, modalPelunasan;
 
-// STATUS ACCORDION GROUPING (PENDING & PROSES Terbuka Default, SELESAI Tertutup)
 let groupCollapsed = {
-    PENDING: false, // Terbuka agar berkas aktif langsung kelihatan
-    PROSES: false,  // Terbuka agar berkas proses langsung kelihatan
-    SELESAI: true   // Tertutup agar ringkas
+    PENDING: false,
+    PROSES: false,
+    SELESAI: true
+};
+
+window.toggleGroup = function(statusGroup) {
+    groupCollapsed[statusGroup] = !groupCollapsed[statusGroup];
+    runFilterAndSort();
 };
 
 export function initTransaksiController() {
@@ -37,7 +41,6 @@ export function initTransaksiController() {
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
-    // Event handler Filter & Sorting
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
@@ -45,7 +48,6 @@ export function initTransaksiController() {
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
-    // 🌟 NATIVE EVENT DELEGATION ANTI-FAIL UNTUK BUKA-TUTUP ACCORDION
     if (containerTrx && !containerTrx.getAttribute('data-event-attached')) {
         containerTrx.setAttribute('data-event-attached', 'true');
         containerTrx.addEventListener('click', (e) => {
@@ -291,6 +293,7 @@ async function saveTransaksi(e) {
     }
 }
 
+// 🌟 REVISI LOGIKA WA NOTIFIKASI HANYA UNTUK 'SELESAI'
 window.updateStatusBerkas = function(id, newStatus, tData) {
     if (window.showConfirm) {
         window.showConfirm("Ubah Status Berkas", `Ubah status berkas ${tData.nama} menjadi ${newStatus}?`, async () => {
@@ -300,9 +303,8 @@ window.updateStatusBerkas = function(id, newStatus, tData) {
                 let infoBerkas = tData.field1 || '-';
                 let pesanStatus = "";
 
-                if (newStatus === 'PROSES') {
-                    pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda saat ini *SEDANG DIPROSES* oleh tim Biro Jasa SPS. Terima kasih.`;
-                } else if (newStatus === 'SELESAI') {
+                // HANYA MENGIRIM WA JIKA STATUSNYA 'SELESAI'
+                if (newStatus === 'SELESAI') {
                     pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
                 }
 
@@ -313,6 +315,9 @@ window.updateStatusBerkas = function(id, newStatus, tData) {
                     } else {
                         if (window.showAlert) window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
                     }
+                } else {
+                    // Jika status 'PROSES', cukup tampilkan alert sukses tanpa kirim WA
+                    if (window.showAlert) window.showAlert("Berhasil", `Status berkas berhasil diperbarui ke ${newStatus}.`, "success");
                 }
             } catch (e) {
                 if (window.showAlert) window.showAlert("Gagal", e.message, "error");
@@ -321,7 +326,6 @@ window.updateStatusBerkas = function(id, newStatus, tData) {
     }
 };
 
-// 🌟 LOGIKA ACCORDION GROUPING (PENDING -> PROSES -> SELESAI)
 function renderTransaksiList(data) {
     if (!containerTrx) return;
 
@@ -424,7 +428,6 @@ function renderTransaksiList(data) {
 
         mainHtml += `
             <div class="border border-gray-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                <!-- BUTTON EVENT DELEGATION -->
                 <button type="button" data-group-key="${g.key}" class="group-header-btn w-full flex items-center justify-between p-4 ${g.bgLight} transition hover:opacity-90 cursor-pointer">
                     <div class="flex items-center gap-3 pointer-events-none">
                         <span class="w-8 h-8 rounded-xl ${g.bg} text-white flex items-center justify-center text-sm shadow-sm">
@@ -582,8 +585,8 @@ window.printPrimaNota = function(t) {
                     <tr style="font-weight: bold; background: #f8fafc;">
                         <td colspan="4" style="padding: 6px; border: 1px solid #000; text-align: right;">TOTAL:</td>
                         <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${sisa.toLocaleString('id-ID')}</td>
+                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${sisa.toLocaleString('id-ID')}</td>
                     </tr>
                 </tbody>
             </table>
