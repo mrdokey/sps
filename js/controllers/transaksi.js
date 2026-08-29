@@ -41,6 +41,7 @@ export function initTransaksiController() {
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
+    // Filter & Sorting Listeners
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
@@ -48,6 +49,7 @@ export function initTransaksiController() {
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
+    // Event Delegation Buka-Tutup Accordion
     if (containerTrx && !containerTrx.getAttribute('data-event-attached')) {
         containerTrx.setAttribute('data-event-attached', 'true');
         containerTrx.addEventListener('click', (e) => {
@@ -168,8 +170,8 @@ function openModal(data = null) {
         document.getElementById('trx-wa').value = data.wa;
         document.getElementById('trx-alamat').value = data.alamat || '';
         document.getElementById('trx-layanan').value = data.layanan;
-        document.getElementById('trx-field-1').value = data.field1 || '';
-        document.getElementById('trx-field-2').value = data.field2 || '';
+        document.getElementById('trx-field-1').value = data.field1 || data.plat || '';
+        document.getElementById('trx-field-2').value = data.field2 || data.unit || data.bangunan || '';
         document.getElementById('trx-tgl-masuk').value = data.tgl_masuk || '';
         document.getElementById('trx-tgl-tempo').value = data.tgl_tempo || '';
         document.getElementById('trx-total').value = data.total || 0;
@@ -188,15 +190,20 @@ function openModal(data = null) {
 
 function closeModal() { modalTrx?.classList.add('hidden'); }
 
-window.openPelunasanModal = function(tData) {
+// 💵 BUKA MODAL ACTION PELUNASAN (CARI DARI ID AMAN)
+window.openPelunasanModal = function(id) {
+    const tData = listTransaksi.find(item => item.id === id);
+    if (!tData) return;
+
     currentPelunasanTrx = tData;
     formPelunasan?.reset();
 
     const sisa = (tData.total || 0) - (tData.bayar || 0);
+    const detailInfo = tData.field1 || tData.plat || '-';
 
     document.getElementById('pelunasan-trx-id').value = tData.id;
     document.getElementById('pelunasan-nama').innerText = tData.nama;
-    document.getElementById('pelunasan-layanan').innerText = `${tData.layanan} (${tData.field1 || '-'})`;
+    document.getElementById('pelunasan-layanan').innerText = `${tData.layanan} (${detailInfo})`;
     document.getElementById('pelunasan-sisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
     document.getElementById('pelunasan-tgl').value = new Date().toISOString().split('T')[0];
     document.getElementById('pelunasan-nominal').value = sisa > 0 ? sisa : 0;
@@ -227,7 +234,7 @@ async function savePelunasan(e) {
         });
 
         const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentPelunasanTrx.id}`;
-        const infoDetail = currentPelunasanTrx.field1 || '-';
+        const infoDetail = currentPelunasanTrx.field1 || currentPelunasanTrx.plat || '-';
         
         const pesanWA = `Halo *${currentPelunasanTrx.nama}*, terima kasih!\n\nPembayaran pelunasan sebesar *Rp ${nominalTambah.toLocaleString('id-ID')}* untuk pengurusan *${currentPelunasanTrx.layanan}* (${infoDetail}) telah *KAMI TERIMA*.\n\n• Status Pembayaran: *${statusBayarBaru}*\n• Total Sudah Dibayar: *Rp ${totalBaruBayar.toLocaleString('id-ID')}*\n\n📄 *Nota / Invoice Terupdate Anda dapat diakses di tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih atas kepercayaannya pada Biro Jasa SPS.`;
         
@@ -248,6 +255,8 @@ async function saveTransaksi(e) {
     const alamat = document.getElementById('trx-alamat').value || '-';
     const layanan = document.getElementById('trx-layanan').value;
     const field1 = document.getElementById('trx-field-1').value;
+    const field2 = document.getElementById('trx-field-2').value;
+    const status_berkas = document.getElementById('trx-status-berkas').value;
 
     const payload = {
         nama: nama,
@@ -255,27 +264,37 @@ async function saveTransaksi(e) {
         alamat: alamat,
         layanan: layanan,
         field1: field1,
-        field2: document.getElementById('trx-field-2').value,
+        field2: field2,
         tgl_masuk: document.getElementById('trx-tgl-masuk').value,
         tgl_tempo: document.getElementById('trx-tgl-tempo').value,
         total: parseInt(document.getElementById('trx-total').value) || 0,
         bayar: parseInt(document.getElementById('trx-bayar').value) || 0,
         biaya_riil: parseInt(document.getElementById('trx-biaya-riil').value) || 0,
         status_bayar: document.getElementById('trx-status-bayar').value,
-        status_berkas: document.getElementById('trx-status-berkas').value,
+        status_berkas: status_berkas,
         fotos: uploadedPhotos
     };
 
     try {
         let docRefId = id;
         if (id) {
+            // Cek apakah status berkas lama diubah menjadi SELESAI lewat form edit
+            const oldData = listTransaksi.find(item => item.id === id);
             await db.collection('transaksi').doc(id).update(payload);
+
+            // JIKA STATUS DIUBAH KE SELESAI LEWAT FORM EDIT, TEMBAK WA JUGA!
+            if (oldData && oldData.status_berkas !== 'SELESAI' && status_berkas === 'SELESAI') {
+                const unitDetail = field2 ? ` (${field2})` : '';
+                const pesanSelesai = `Halo *${nama}*, menginfokan bahwa berkas *${layanan}* (${field1}${unitDetail}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
+                sendWA(wa, pesanSelesai);
+            }
         } else {
             const docRef = await db.collection('transaksi').add(payload);
             docRefId = docRef.id;
 
             const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
-            const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
+            const unitDetail = field2 ? ` (${field2})` : '';
+            const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}${unitDetail}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
             sendWA(wa, pesanWaBaru);
         }
 
@@ -293,30 +312,30 @@ async function saveTransaksi(e) {
     }
 }
 
-// 🌟 REVISI LOGIKA WA NOTIFIKASI HANYA UNTUK 'SELESAI'
-window.updateStatusBerkas = function(id, newStatus, tData) {
+// 🌟 FUNGSI ACTION CEPAT "SELESAI" (CARI OBJEK DATA DARI MEMORI TANPA CRASH JSON)
+window.updateStatusBerkas = function(id, newStatus) {
+    const tData = listTransaksi.find(item => item.id === id);
+    if (!tData) return;
+
     if (window.showConfirm) {
         window.showConfirm("Ubah Status Berkas", `Ubah status berkas ${tData.nama} menjadi ${newStatus}?`, async () => {
             try {
                 await db.collection('transaksi').doc(id).update({ status_berkas: newStatus });
 
-                let infoBerkas = tData.field1 || '-';
-                let pesanStatus = "";
+                const infoDetail = tData.field1 || tData.plat || tData.bangunan || '-';
+                const unitDetail = tData.field2 ? ` (${tData.field2})` : (tData.unit ? ` (${tData.unit})` : '');
 
                 // HANYA MENGIRIM WA JIKA STATUSNYA 'SELESAI'
                 if (newStatus === 'SELESAI') {
-                    pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoBerkas}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
-                }
-
-                if (pesanStatus) {
+                    const pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoDetail}${unitDetail}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
+                    
                     const sendRes = await sendWA(tData.wa, pesanStatus);
                     if (sendRes) {
-                        if (window.showAlert) window.showAlert("Berhasil", `Status diperbarui ke ${newStatus} & WA notifikasi terkirim!`, "success");
+                        if (window.showAlert) window.showAlert("Berhasil", `Status diperbarui ke SELESAI & WA notifikasi sukses terkirim ke klien!`, "success");
                     } else {
-                        if (window.showAlert) window.showAlert("Perhatian", `Status diperbarui ke ${newStatus}, namun gagal mengirim WA.`, "info");
+                        if (window.showAlert) window.showAlert("Perhatian", `Status diperbarui ke SELESAI, namun gagal mengirim WA ke klien.`, "info");
                     }
                 } else {
-                    // Jika status 'PROSES', cukup tampilkan alert sukses tanpa kirim WA
                     if (window.showAlert) window.showAlert("Berhasil", `Status berkas berhasil diperbarui ke ${newStatus}.`, "success");
                 }
             } catch (e) {
@@ -356,8 +375,8 @@ function renderTransaksiList(data) {
 
         let cardsHtml = '';
         g.items.forEach(t => {
-            const info1 = t.field1 || '-';
-            const info2 = t.field2 ? ` (${t.field2})` : '';
+            const info1 = t.field1 || t.plat || '-';
+            const info2 = t.field2 ? ` (${t.field2})` : (t.unit ? ` (${t.unit})` : '');
             const sisa = (t.total || 0) - (t.bayar || 0);
 
             const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
@@ -366,11 +385,12 @@ function renderTransaksiList(data) {
             const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
             const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
 
-            const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">Proses</button>` : '';
-            const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI", ${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold">Selesai</button>` : '';
+            // Tombol Action Aman (Hanya kirim string ID)
+            const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES")' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold cursor-pointer">Proses</button>` : '';
+            const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI")' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold cursor-pointer">Selesai</button>` : '';
 
             const btnPelunasan = (t.status_bayar !== 'LUNAS') ? `
-                <button onclick='window.openPelunasanModal(${JSON.stringify(t)})' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
+                <button onclick='window.openPelunasanModal("${t.id}")' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
                     <i class="fa-solid fa-hand-holding-dollar"></i>Pelunasan
                 </button>
             ` : '';
@@ -410,13 +430,13 @@ function renderTransaksiList(data) {
                         </div>
 
                         <div class="flex items-center justify-between gap-2 mt-1">
-                            <button onclick='window.printPrimaNota(${JSON.stringify(t)})' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                            <button onclick='window.printPrimaNota("${t.id}")' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
                                 <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
                             </button>
 
                             <div class="flex gap-1.5">
-                                <button onclick='window.editTransaksi(${JSON.stringify(t)})' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium">Edit</button>
-                                <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium">Hapus</button>
+                                <button onclick='window.editTransaksi("${t.id}")' class="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium cursor-pointer">Edit</button>
+                                <button onclick="window.deleteTransaksi('${t.id}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium cursor-pointer">Hapus</button>
                             </div>
                         </div>
                     </div>
@@ -508,7 +528,10 @@ function resetFilter() {
     runFilterAndSort();
 }
 
-window.editTransaksi = function(data) { openModal(data); }
+window.editTransaksi = function(id) {
+    const data = typeof id === 'object' ? id : listTransaksi.find(item => item.id === id);
+    if (data) openModal(data);
+};
 
 window.deleteTransaksi = function(id) {
     if (window.showConfirm) {
@@ -521,9 +544,12 @@ window.deleteTransaksi = function(id) {
     }
 };
 
-window.printPrimaNota = function(t) {
-    const infoDetail = t.field1 || '-';
-    const unitDetail = t.field2 ? ` (${t.field2})` : '';
+window.printPrimaNota = function(id) {
+    const t = typeof id === 'object' ? id : listTransaksi.find(item => item.id === id);
+    if (!t) return;
+
+    const infoDetail = t.field1 || t.plat || t.bangunan || '-';
+    const unitDetail = t.field2 ? ` (${t.field2})` : (t.unit ? ` (${t.unit})` : '');
     const sisa = (t.total || 0) - (t.bayar || 0);
 
     const namaUsaha = (configGlobal && configGlobal.nama) ? configGlobal.nama : "BIRO JASA SPS (SEDANA PERMATA SARI)";
