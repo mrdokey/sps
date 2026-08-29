@@ -1,35 +1,66 @@
 <div id="modal-pelunasan" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
         <div class="flex justify-between items-center border-b pb-3">
             <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i>Pelunasan / Bayar Sisa
+                <i class="fa-solid fa-hand-holding-dollar text-emerald-600"></i>Pencatatan Pembayaran & Cicilan
             </h3>
             <button id="btn-close-modal-pelunasan" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
         </div>
 
-        <form id="form-pelunasan" class="space-y-3">
+        <!-- RINGKASAN TAGIHAN KLIEN -->
+        <div class="bg-slate-50 p-4 rounded-2xl space-y-1.5 text-xs text-gray-600 border border-slate-100">
+            <div class="flex justify-between"><span class="text-gray-400">Nama Klien:</span><strong id="pelunasan-nama" class="text-gray-800">-</strong></div>
+            <div class="flex justify-between"><span class="text-gray-400">Layanan:</span><strong id="pelunasan-layanan" class="text-gray-800">-</strong></div>
+            <div class="flex justify-between border-t pt-1.5"><span class="text-gray-400">Total Tagihan:</span><span id="pelunasan-total" class="font-bold text-gray-800">Rp 0</span></div>
+            <div class="flex justify-between"><span class="text-gray-400">Sudah Terbayar:</span><span id="pelunasan-terbayar" class="font-bold text-emerald-600">Rp 0</span></div>
+            <div class="flex justify-between border-t pt-1.5"><span class="font-bold text-rose-600">Sisa Tagihan (Piutang):</span><span id="pelunasan-sisa" class="font-black text-rose-600 text-sm">Rp 0</span></div>
+        </div>
+
+        <!-- FORM INPUT PEMBAYARAN BARU -->
+        <form id="form-pelunasan" class="space-y-3 pt-2">
             <input type="hidden" id="pelunasan-trx-id">
             
-            <div class="bg-slate-50 p-3.5 rounded-xl space-y-1 text-xs text-gray-600 border border-slate-100">
-                <p><strong>Nama Klien:</strong> <span id="pelunasan-nama" class="text-gray-900 font-semibold">-</span></p>
-                <p><strong>Layanan:</strong> <span id="pelunasan-layanan" class="text-gray-900 font-semibold">-</span></p>
-                <p><strong>Sisa Tagihan Saat Ini:</strong> <span id="pelunasan-sisa" class="font-bold text-rose-600 text-sm">Rp 0</span></p>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Bayar *</label>
+                    <input type="date" id="pelunasan-tgl" class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-emerald-500" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Metode Pembayaran *</label>
+                    <select id="pelunasan-metode" class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-emerald-500" required>
+                        <option value="Tunai / Cash">Tunai / Cash</option>
+                        <option value="Transfer BCA">Transfer BCA (Suryani)</option>
+                        <option value="Transfer BPD">Transfer BPD (Suryani)</option>
+                        <option value="Transfer Lainnya">Transfer Lainnya</option>
+                    </select>
+                </div>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Tanggal Pembayaran Pelunasan *</label>
-                <input type="date" id="pelunasan-tgl" class="w-full px-3 py-2 border rounded-xl text-sm" required>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Tahap / Keterangan Pembayaran *</label>
+                <input type="text" id="pelunasan-keterangan" placeholder="Contoh: Cicilan ke-2 / Pelunasan Berkas" class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-emerald-500" required>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">Nominal Pembayaran Tambahan (Rp) *</label>
-                <input type="number" id="pelunasan-nominal" placeholder="Masukkan nominal bayar" class="w-full px-3 py-2 border border-emerald-300 bg-emerald-50/30 rounded-xl text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500" required>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Nominal Yang Dibayarkan (Rp) *</label>
+                <input type="number" id="pelunasan-nominal" placeholder="Masukkan nominal bayar" class="w-full px-3 py-2.5 border border-emerald-300 bg-emerald-50/30 rounded-xl text-sm font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500" required>
             </div>
 
-            <div class="pt-3 flex justify-end gap-2 border-t mt-4">
-                <button type="button" id="btn-cancel-pelunasan" class="px-4 py-2 border rounded-xl text-sm font-medium text-gray-600">Batal</button>
-                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow">Simpan Pelunasan</button>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" id="btn-cancel-pelunasan" class="px-4 py-2 border rounded-xl text-xs font-medium text-gray-600">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow">+ Simpan Pembayaran</button>
             </div>
         </form>
+
+        <!-- DAFTAR RIWAYAT PEMBAYARAN SEBELUMNYA -->
+        <div class="border-t pt-3 space-y-2">
+            <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center justify-between">
+                <span>Riwayat Pembayaran Klien</span>
+                <span id="pelunasan-count-badge" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-semibold">0x Pembayaran</span>
+            </h4>
+            <div id="container-riwayat-pembayaran" class="space-y-2 max-h-48 overflow-y-auto">
+                <p class="text-xs text-gray-400 italic text-center py-2">Belum ada riwayat pembayaran.</p>
+            </div>
+        </div>
     </div>
 </div>

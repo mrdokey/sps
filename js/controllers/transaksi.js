@@ -41,7 +41,6 @@ export function initTransaksiController() {
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
-    // Filter & Sorting Listeners
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
@@ -49,7 +48,6 @@ export function initTransaksiController() {
     document.getElementById('sort-select')?.addEventListener('change', runFilterAndSort);
     document.getElementById('btn-reset-filter')?.addEventListener('click', resetFilter);
 
-    // Event Delegation Buka-Tutup Accordion
     if (containerTrx && !containerTrx.getAttribute('data-event-attached')) {
         containerTrx.setAttribute('data-event-attached', 'true');
         containerTrx.addEventListener('click', (e) => {
@@ -190,7 +188,7 @@ function openModal(data = null) {
 
 function closeModal() { modalTrx?.classList.add('hidden'); }
 
-// 💵 BUKA MODAL ACTION PELUNASAN (CARI DARI ID AMAN)
+// 💵 BUKA MODAL MULTI-PAYMENT & RIWAYAT PEMBAYARAN
 window.openPelunasanModal = function(id) {
     const tData = listTransaksi.find(item => item.id === id);
     if (!tData) return;
@@ -204,44 +202,122 @@ window.openPelunasanModal = function(id) {
     document.getElementById('pelunasan-trx-id').value = tData.id;
     document.getElementById('pelunasan-nama').innerText = tData.nama;
     document.getElementById('pelunasan-layanan').innerText = `${tData.layanan} (${detailInfo})`;
+    document.getElementById('pelunasan-total').innerText = `Rp ${(tData.total || 0).toLocaleString('id-ID')}`;
+    document.getElementById('pelunasan-terbayar').innerText = `Rp ${(tData.bayar || 0).toLocaleString('id-ID')}`;
     document.getElementById('pelunasan-sisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
     document.getElementById('pelunasan-tgl').value = new Date().toISOString().split('T')[0];
     document.getElementById('pelunasan-nominal').value = sisa > 0 ? sisa : 0;
+    
+    // Set auto-suggest keterangan
+    const paymentCount = Array.isArray(tData.riwayat_pembayaran) ? tData.riwayat_pembayaran.length : (tData.bayar > 0 ? 1 : 0);
+    document.getElementById('pelunasan-keterangan').value = sisa <= 0 ? "Pelunasan Tagihan" : `Pembayaran Cicilan ke-${paymentCount + 1}`;
 
+    renderRiwayatPembayaranModal(tData);
     modalPelunasan?.classList.remove('hidden');
 };
 
 function closeModalPelunasan() { modalPelunasan?.classList.add('hidden'); }
 
+function renderRiwayatPembayaranModal(tData) {
+    const container = document.getElementById('container-riwayat-pembayaran');
+    const badgeCount = document.getElementById('pelunasan-count-badge');
+    if (!container) return;
+
+    const riwayat = Array.isArray(tData.riwayat_pembayaran) ? tData.riwayat_pembayaran : (tData.bayar > 0 ? [{
+        id_bayar: 'PAY-1',
+        tgl: tData.tgl_masuk || '-',
+        nominal: tData.bayar,
+        keterangan: 'Pembayaran Awal / DP',
+        metode: 'Tunai / Transfer'
+    }] : []);
+
+    if (badgeCount) badgeCount.innerText = `${riwayat.length}x Pembayaran`;
+
+    let html = '';
+    riwayat.forEach((p, idx) => {
+        html += `
+            <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 text-xs shadow-sm">
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-gray-800">${p.keterangan || `Pembayaran #${idx + 1}`}</span>
+                        <span class="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded border border-emerald-200">${p.metode || 'Kas'}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-400 mt-0.5"><i class="fa-solid fa-calendar-check mr-1"></i>${p.tgl} • <strong class="text-emerald-600">Rp ${(p.nominal || 0).toLocaleString('id-ID')}</strong></p>
+                </div>
+                <button type="button" onclick='window.printKwitansi("${tData.id}", ${idx})' class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition flex items-center gap-1">
+                    <i class="fa-solid fa-print"></i>Kwitansi
+                </button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html || '<p class="text-xs text-gray-400 italic text-center py-2">Belum ada riwayat pembayaran.</p>';
+}
+
+// 💵 EKSEKUSI PEMBAYARAN CICILAN / PELUNASAN + AUTO-SYNC KAS & WA
 async function savePelunasan(e) {
     e.preventDefault();
     if (!currentPelunasanTrx) return;
 
     const nominalTambah = parseInt(document.getElementById('pelunasan-nominal').value) || 0;
+    const tglBayar = document.getElementById('pelunasan-tgl').value;
+    const ketBayar = document.getElementById('pelunasan-keterangan').value.trim() || 'Pembayaran Cicilan';
+    const metodeBayar = document.getElementById('pelunasan-metode').value;
+
     if (nominalTambah <= 0) {
-        if (window.showAlert) window.showAlert("Perhatian", "Nominal pembayaran pelunasan harus lebih dari 0!", "info");
+        if (window.showAlert) window.showAlert("Perhatian", "Nominal pembayaran harus lebih dari 0!", "info");
         return;
     }
 
-    const totalBaruBayar = (currentPelunasanTrx.bayar || 0) + nominalTambah;
-    const isLunas = totalBaruBayar >= currentPelunasanTrx.total;
+    // Ambil riwayat lama atau inisialisasi jika data lama
+    let riwayat = Array.isArray(currentPelunasanTrx.riwayat_pembayaran) ? [...currentPelunasanTrx.riwayat_pembayaran] : (currentPelunasanTrx.bayar > 0 ? [{
+        id_bayar: 'PAY-1',
+        tgl: currentPelunasanTrx.tgl_masuk || tglBayar,
+        nominal: currentPelunasanTrx.bayar,
+        keterangan: 'Pembayaran Awal / DP',
+        metode: 'Tunai / Transfer'
+    }] : []);
+
+    // Tambahkan record pembayaran baru
+    const newPayment = {
+        id_bayar: `PAY-${riwayat.length + 1}`,
+        tgl: tglBayar,
+        nominal: nominalTambah,
+        keterangan: ketBayar,
+        metode: metodeBayar
+    };
+    riwayat.push(newPayment);
+
+    // Hitung total akumulasi pembayaran
+    const totalBaruBayar = riwayat.reduce((acc, cur) => acc + (cur.nominal || 0), 0);
+    const sisaAkhir = (currentPelunasanTrx.total || 0) - totalBaruBayar;
+    const isLunas = sisaAkhir <= 0;
     const statusBayarBaru = isLunas ? "LUNAS" : "DP";
 
     try {
         await db.collection('transaksi').doc(currentPelunasanTrx.id).update({
             bayar: totalBaruBayar,
-            status_bayar: statusBayarBaru
+            status_bayar: statusBayarBaru,
+            riwayat_pembayaran: riwayat
         });
 
+        // Auto-Kirim Pesan WhatsApp Kwitansi Digital ke Klien
         const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentPelunasanTrx.id}`;
         const infoDetail = currentPelunasanTrx.field1 || currentPelunasanTrx.plat || '-';
         
-        const pesanWA = `Halo *${currentPelunasanTrx.nama}*, terima kasih!\n\nPembayaran pelunasan sebesar *Rp ${nominalTambah.toLocaleString('id-ID')}* untuk pengurusan *${currentPelunasanTrx.layanan}* (${infoDetail}) telah *KAMI TERIMA*.\n\n• Status Pembayaran: *${statusBayarBaru}*\n• Total Sudah Dibayar: *Rp ${totalBaruBayar.toLocaleString('id-ID')}*\n\n📄 *Nota / Invoice Terupdate Anda dapat diakses di tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih atas kepercayaannya pada Biro Jasa SPS.`;
+        const pesanWA = `Halo *${currentPelunasanTrx.nama}*, terima kasih!\n\n` +
+                        `Pembayaran sebesar *Rp ${nominalTambah.toLocaleString('id-ID')}* (${ketBayar} - ${metodeBayar}) untuk pengurusan *${currentPelunasanTrx.layanan}* (${infoDetail}) telah *KAMI TERIMA* pada tanggal ${tglBayar}.\n\n` +
+                        `• Total Biaya: *Rp ${(currentPelunasanTrx.total || 0).toLocaleString('id-ID')}*\n` +
+                        `• Total Terbayar: *Rp ${totalBaruBayar.toLocaleString('id-ID')}*\n` +
+                        `• Sisa Tagihan: *Rp ${sisaAkhir > 0 ? sisaAkhir.toLocaleString('id-ID') : '0 (LUNAS)'}*\n` +
+                        `• Status: *${statusBayarBaru}*\n\n` +
+                        `📄 *Kwitansi & Rincian Pembayaran Terupdate:* ${publicInvoiceUrl}\n\n` +
+                        `Terima kasih atas kepercayaannya pada Biro Jasa SPS.`;
         
         sendWA(currentPelunasanTrx.wa, pesanWA);
 
         closeModalPelunasan();
-        if (window.showAlert) window.showAlert("Pelunasan Berhasil!", `Pembayaran Rp ${nominalTambah.toLocaleString('id-ID')} berhasil dicatat & WA Nota Terupdate telah terkirim!`, "success");
+        if (window.showAlert) window.showAlert("Pembayaran Berhasil!", `Pembayaran Rp ${nominalTambah.toLocaleString('id-ID')} berhasil dicatat di Buku Kas & Kwitansi WA telah terkirim!`, "success");
     } catch (err) {
         if (window.showAlert) window.showAlert("Gagal", err.message, "error");
     }
@@ -256,7 +332,25 @@ async function saveTransaksi(e) {
     const layanan = document.getElementById('trx-layanan').value;
     const field1 = document.getElementById('trx-field-1').value;
     const field2 = document.getElementById('trx-field-2').value;
+    const tgl_masuk = document.getElementById('trx-tgl-masuk').value;
+    const tgl_tempo = document.getElementById('trx-tgl-tempo').value;
+    const total = parseInt(document.getElementById('trx-total').value) || 0;
+    const bayar = parseInt(document.getElementById('trx-bayar').value) || 0;
+    const biaya_riil = parseInt(document.getElementById('trx-biaya-riil').value) || 0;
     const status_berkas = document.getElementById('trx-status-berkas').value;
+    const status_bayar = (bayar >= total && total > 0) ? "LUNAS" : (bayar > 0 ? "DP" : "BELUM BAYAR");
+
+    // Otomatis buat Riwayat Pembayaran #1 (DP/Awal) jika ada pembayaran di form registrasi
+    let riwayat = [];
+    if (bayar > 0) {
+        riwayat.push({
+            id_bayar: 'PAY-1',
+            tgl: tgl_masuk,
+            nominal: bayar,
+            keterangan: (bayar >= total && total > 0) ? 'Pembayaran Penuh (Lunas)' : 'Uang Muka / DP',
+            metode: 'Tunai / Transfer'
+        });
+    }
 
     const payload = {
         nama: nama,
@@ -265,12 +359,12 @@ async function saveTransaksi(e) {
         layanan: layanan,
         field1: field1,
         field2: field2,
-        tgl_masuk: document.getElementById('trx-tgl-masuk').value,
-        tgl_tempo: document.getElementById('trx-tgl-tempo').value,
-        total: parseInt(document.getElementById('trx-total').value) || 0,
-        bayar: parseInt(document.getElementById('trx-bayar').value) || 0,
-        biaya_riil: parseInt(document.getElementById('trx-biaya-riil').value) || 0,
-        status_bayar: document.getElementById('trx-status-bayar').value,
+        tgl_masuk: tgl_masuk,
+        tgl_tempo: tgl_tempo,
+        total: total,
+        bayar: bayar,
+        biaya_riil: biaya_riil,
+        status_bayar: status_bayar,
         status_berkas: status_berkas,
         fotos: uploadedPhotos
     };
@@ -278,23 +372,30 @@ async function saveTransaksi(e) {
     try {
         let docRefId = id;
         if (id) {
-            // Cek apakah status berkas lama diubah menjadi SELESAI lewat form edit
             const oldData = listTransaksi.find(item => item.id === id);
+            // Pertahankan riwayat cicilan lama jika ada
+            if (oldData && Array.isArray(oldData.riwayat_pembayaran)) {
+                payload.riwayat_pembayaran = oldData.riwayat_pembayaran;
+            }
             await db.collection('transaksi').doc(id).update(payload);
 
-            // JIKA STATUS DIUBAH KE SELESAI LEWAT FORM EDIT, TEMBAK WA JUGA!
             if (oldData && oldData.status_berkas !== 'SELESAI' && status_berkas === 'SELESAI') {
                 const unitDetail = field2 ? ` (${field2})` : '';
                 const pesanSelesai = `Halo *${nama}*, menginfokan bahwa berkas *${layanan}* (${field1}${unitDetail}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
                 sendWA(wa, pesanSelesai);
             }
         } else {
+            payload.riwayat_pembayaran = riwayat;
             const docRef = await db.collection('transaksi').add(payload);
             docRefId = docRef.id;
 
             const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
             const unitDetail = field2 ? ` (${field2})` : '';
-            const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}${unitDetail}) di Biro Jasa SPS.\n\n📄 *Rincian Invoice & Tagihan Anda dapat dilihat pada tautan berikut:*\n${publicInvoiceUrl}\n\nTerima kasih.`;
+            const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}${unitDetail}) di Biro Jasa SPS.\n\n` +
+                                `• Total Tagihan: *Rp ${total.toLocaleString('id-ID')}*\n` +
+                                `• Pembayaran Awal (DP): *Rp ${bayar.toLocaleString('id-ID')}*\n` +
+                                `• Sisa Tagihan: *Rp ${(total - bayar).toLocaleString('id-ID')}*\n\n` +
+                                `📄 *Rincian Invoice & Kwitansi Digital:* ${publicInvoiceUrl}\n\nTerima kasih.`;
             sendWA(wa, pesanWaBaru);
         }
 
@@ -312,7 +413,6 @@ async function saveTransaksi(e) {
     }
 }
 
-// 🌟 FUNGSI ACTION CEPAT "SELESAI" (CARI OBJEK DATA DARI MEMORI TANPA CRASH JSON)
 window.updateStatusBerkas = function(id, newStatus) {
     const tData = listTransaksi.find(item => item.id === id);
     if (!tData) return;
@@ -325,10 +425,8 @@ window.updateStatusBerkas = function(id, newStatus) {
                 const infoDetail = tData.field1 || tData.plat || tData.bangunan || '-';
                 const unitDetail = tData.field2 ? ` (${tData.field2})` : (tData.unit ? ` (${tData.unit})` : '');
 
-                // HANYA MENGIRIM WA JIKA STATUSNYA 'SELESAI'
                 if (newStatus === 'SELESAI') {
                     const pesanStatus = `Halo *${tData.nama}*, menginfokan bahwa berkas *${tData.layanan}* (${infoDetail}${unitDetail}) Anda sudah *SELESAI DIPROSES* dan siap diambil / diserahkan. Terima kasih.`;
-                    
                     const sendRes = await sendWA(tData.wa, pesanStatus);
                     if (sendRes) {
                         if (window.showAlert) window.showAlert("Berhasil", `Status diperbarui ke SELESAI & WA notifikasi sukses terkirim ke klien!`, "success");
@@ -385,21 +483,28 @@ function renderTransaksiList(data) {
             const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
             const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
 
-            // Tombol Action Aman (Hanya kirim string ID)
+            // Hitung kali pembayaran
+            const payCount = Array.isArray(t.riwayat_pembayaran) ? t.riwayat_pembayaran.length : (t.bayar > 0 ? 1 : 0);
+            const payBadge = `<span class="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded border border-emerald-200">${payCount}x Bayar</span>`;
+
             const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES")' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold cursor-pointer">Proses</button>` : '';
             const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI")' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold cursor-pointer">Selesai</button>` : '';
 
-            const btnPelunasan = (t.status_bayar !== 'LUNAS') ? `
+            // Tombol Bayar / Cicilan
+            const btnBayarCicil = `
                 <button onclick='window.openPelunasanModal("${t.id}")' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>Pelunasan
+                    <i class="fa-solid fa-hand-holding-dollar"></i>${sisa <= 0 ? 'Riwayat Bayar' : 'Bayar / Cicil'}
                 </button>
-            ` : '';
+            `;
 
             cardsHtml += `
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div>
                         <div class="flex justify-between items-start mb-2">
-                            <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar}</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar}</span>
+                                ${payBadge}
+                            </div>
                             <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBerkas}">${t.status_berkas}</span>
                         </div>
                         <div>
@@ -421,17 +526,17 @@ function renderTransaksiList(data) {
 
                     <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
                         <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
-                            <span class="text-[10px] font-bold text-gray-400 uppercase">Aksi Berkas:</span>
+                            <span class="text-[10px] font-bold text-gray-400 uppercase">Aksi:</span>
                             <div class="flex gap-1.5 items-center">
-                                ${btnPelunasan}
+                                ${btnBayarCicil}
                                 ${btnActionProses}
                                 ${btnActionSelesai}
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between gap-2 mt-1">
-                            <button onclick='window.printPrimaNota("${t.id}")' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
-                                <i class="fa-solid fa-file-contract mr-1"></i>Prima Nota
+                            <button onclick='window.printPrimaNota("${t.id}")' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition cursor-pointer flex items-center gap-1">
+                                <i class="fa-solid fa-file-contract"></i>Prima Nota
                             </button>
 
                             <div class="flex gap-1.5">
@@ -544,6 +649,7 @@ window.deleteTransaksi = function(id) {
     }
 };
 
+// 📄 FUNGSI CETAK PRIMA NOTA AKUMULASI (DENGAN TABEL SELURUH CICILAN)
 window.printPrimaNota = function(id) {
     const t = typeof id === 'object' ? id : listTransaksi.find(item => item.id === id);
     if (!t) return;
@@ -555,6 +661,27 @@ window.printPrimaNota = function(id) {
     const namaUsaha = (configGlobal && configGlobal.nama) ? configGlobal.nama : "BIRO JASA SPS (SEDANA PERMATA SARI)";
     const alamatKantor = (configGlobal && configGlobal.alamat) ? configGlobal.alamat : "JALAN ULUWATU, BALI";
     const kontakKantor = (configGlobal && configGlobal.kontak) ? configGlobal.kontak : "085237044224 / 085238010224";
+
+    const riwayat = Array.isArray(t.riwayat_pembayaran) ? t.riwayat_pembayaran : (t.bayar > 0 ? [{
+        id_bayar: 'PAY-1',
+        tgl: t.tgl_masuk || '-',
+        nominal: t.bayar,
+        keterangan: 'Pembayaran Awal / DP',
+        metode: 'Tunai / Transfer'
+    }] : []);
+
+    let rowsRiwayatHtml = '';
+    riwayat.forEach((p, idx) => {
+        rowsRiwayatHtml += `
+            <tr style="text-align: center;">
+                <td style="padding: 6px; border: 1px solid #000;">${idx + 1}</td>
+                <td style="padding: 6px; border: 1px solid #000;">${p.tgl}</td>
+                <td style="padding: 6px; border: 1px solid #000;">${p.id_bayar || `PAY-${idx+1}`}</td>
+                <td style="padding: 6px; border: 1px solid #000; text-align: left;">${p.keterangan} (${p.metode || 'Kas'})</td>
+                <td style="padding: 6px; border: 1px solid #000; text-align: right; font-weight: bold; color: #047857;">Rp ${(p.nominal||0).toLocaleString('id-ID')}</td>
+            </tr>
+        `;
+    });
 
     const element = document.createElement('div');
     element.style.padding = '20px';
@@ -581,51 +708,57 @@ window.printPrimaNota = function(id) {
                         <tr><td style="width: 85px; font-weight: bold;">Layanan</td><td>: <strong>${t.layanan}</strong></td></tr>
                         <tr><td style="font-weight: bold;">Detail Berkas</td><td>: ${infoDetail}${unitDetail}</td></tr>
                         <tr><td style="font-weight: bold;">Tgl Masuk</td><td>: ${t.tgl_masuk}</td></tr>
-                        <tr><td style="font-weight: bold;">Jatuh Tempo</td><td>: ${t.tgl_tempo || '-'}</td></tr>
+                        <tr><td style="font-weight: bold;">Status Bayar</td><td>: <strong>${t.status_bayar}</strong></td></tr>
                     </table>
                 </div>
             </div>
 
-            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 20px;">
+            <!-- TABEL TAGIHAN UTAMA -->
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px;">
                 <thead>
                     <tr style="background: #f1f5f9; text-align: center; font-weight: bold;">
-                        <th style="padding: 6px; border: 1px solid #000; width: 25px;">No</th>
-                        <th style="padding: 6px; border: 1px solid #000; width: 75px;">Tanggal</th>
-                        <th style="padding: 6px; border: 1px solid #000; width: 45px;">Kode</th>
-                        <th style="padding: 6px; border: 1px solid #000;">Keterangan Transaksi</th>
-                        <th style="padding: 6px; border: 1px solid #000; width: 85px;">Total Tagihan</th>
-                        <th style="padding: 6px; border: 1px solid #000; width: 85px;">Jumlah Dibayar</th>
-                        <th style="padding: 6px; border: 1px solid #000; width: 85px;">Sisa Saldo</th>
+                        <th style="padding: 6px; border: 1px solid #000;">Rincian Pengurusan Berkas</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 100px;">Total Tagihan</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 100px;">Total Terbayar</th>
+                        <th style="padding: 6px; border: 1px solid #000; width: 100px;">Sisa Piutang</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr style="text-align: center;">
-                        <td style="padding: 8px 4px; border: 1px solid #000;">1</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000;">${t.tgl_masuk}</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000;">${t.layanan ? t.layanan.substring(0,3) : 'SPS'}</td>
-                        <td style="padding: 8px 6px; border: 1px solid #000; text-align: left;">Pengurusan ${t.layanan} (${infoDetail}${unitDetail})</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 8px 4px; border: 1px solid #000; text-align: right; font-weight: bold;">Rp ${sisa.toLocaleString('id-ID')}</td>
-                    </tr>
-                    <tr style="font-weight: bold; background: #f8fafc;">
-                        <td colspan="4" style="padding: 6px; border: 1px solid #000; text-align: right;">TOTAL:</td>
-                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
-                        <td style="padding: 6px; border: 1px solid #000; text-align: right;">Rp ${sisa.toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px; border: 1px solid #000; text-align: left;">Pengurusan ${t.layanan} (${infoDetail}${unitDetail})</td>
+                        <td style="padding: 8px; border: 1px solid #000; text-align: right; font-weight: bold;">Rp ${(t.total||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px; border: 1px solid #000; text-align: right; color: #047857; font-weight: bold;">Rp ${(t.bayar||0).toLocaleString('id-ID')}</td>
+                        <td style="padding: 8px; border: 1px solid #000; text-align: right; color: #b91c1c; font-weight: bold;">Rp ${sisa.toLocaleString('id-ID')}</td>
                     </tr>
                 </tbody>
             </table>
 
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 25px; font-size: 10px;">
+            <!-- TABEL RINCIAN TAHAP PEMBAYARAN / CICILAN -->
+            <p style="font-size: 10px; font-weight: bold; margin: 8px 0 4px 0;">TABEL TAHAPAN PEMBAYARAN (CICILAN):</p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; margin-bottom: 15px;">
+                <thead>
+                    <tr style="background: #f8fafc; text-align: center; font-weight: bold;">
+                        <th style="padding: 5px; border: 1px solid #000; width: 25px;">No</th>
+                        <th style="padding: 5px; border: 1px solid #000; width: 75px;">Tgl Bayar</th>
+                        <th style="padding: 5px; border: 1px solid #000; width: 60px;">Kode</th>
+                        <th style="padding: 5px; border: 1px solid #000;">Keterangan & Metode</th>
+                        <th style="padding: 5px; border: 1px solid #000; width: 95px;">Nominal Masuk</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsRiwayatHtml || '<tr><td colspan="5" style="padding: 6px; text-align: center; border: 1px solid #000;">Belum ada cicilan masuk.</td></tr>'}
+                </tbody>
+            </table>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; font-size: 10px;">
                 <div style="text-align: center; width: 180px;">
                     <p style="margin: 0;">Penerima Berkas / Klien,</p>
-                    <div style="height: 50px;"></div>
+                    <div style="height: 45px;"></div>
                     <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( ${t.nama} )</p>
                 </div>
                 <div style="text-align: center; width: 200px;">
                     <p style="margin: 0;">Petugas Biro Jasa SPS,</p>
-                    <div style="height: 50px;"></div>
+                    <div style="height: 45px;"></div>
                     <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( Ni Nyoman Suryani )</p>
                 </div>
             </div>
@@ -638,6 +771,78 @@ window.printPrimaNota = function(id) {
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+};
+
+// 🧾 FUNGSI CETAK KWITANSI RESMI PER-CICILAN
+window.printKwitansi = function(trxId, paymentIndex) {
+    const t = listTransaksi.find(item => item.id === trxId);
+    if (!t) return;
+
+    const riwayat = Array.isArray(t.riwayat_pembayaran) ? t.riwayat_pembayaran : [{
+        id_bayar: 'PAY-1',
+        tgl: t.tgl_masuk || '-',
+        nominal: t.bayar,
+        keterangan: 'Pembayaran Awal / DP',
+        metode: 'Tunai / Transfer'
+    }];
+
+    const p = riwayat[paymentIndex];
+    if (!p) return;
+
+    const namaUsaha = (configGlobal && configGlobal.nama) ? configGlobal.nama : "BIRO JASA SPS (SEDANA PERMATA SARI)";
+    const alamatKantor = (configGlobal && configGlobal.alamat) ? configGlobal.alamat : "JALAN ULUWATU, BALI";
+    const infoDetail = t.field1 || t.plat || '-';
+
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = 'Arial, sans-serif';
+    element.innerHTML = `
+        <div style="border: 2px solid #000; padding: 20px; max-width: 600px; margin: 0 auto; background: white; color: #000;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 8px;">
+                <div>
+                    <h2 style="margin: 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${namaUsaha}</h2>
+                    <p style="margin: 2px 0 0 0; font-size: 10px;">${alamatKantor}</p>
+                </div>
+                <div style="text-align: right;">
+                    <h3 style="margin: 0; font-size: 14px; font-weight: bold;">KWITANSI PEMBAYARAN</h3>
+                    <p style="margin: 2px 0 0 0; font-size: 10px; font-family: monospace;">No: ${p.id_bayar || `KW-${paymentIndex+1}`}</p>
+                </div>
+            </div>
+
+            <div style="margin: 15px 0; font-size: 11px; line-height: 1.8;">
+                <table style="width: 100%;">
+                    <tr><td style="width: 130px;">Telah Diterima Dari</td><td>: <strong>${t.nama}</strong></td></tr>
+                    <tr><td>Uang Sejumlah</td><td>: <strong style="font-size: 13px; color: #047857; background: #ecfdf5; padding: 2px 6px; border-radius: 4px;">Rp ${(p.nominal||0).toLocaleString('id-ID')}</strong></td></tr>
+                    <tr><td>Untuk Pembayaran</td><td>: ${p.keterangan} pengurusan berkas <strong>${t.layanan} (${infoDetail})</strong></td></tr>
+                    <tr><td>Metode Pembayaran</td><td>: ${p.metode || 'Tunai'}</td></tr>
+                    <tr><td>Tanggal Pembayaran</td><td>: ${p.tgl}</td></tr>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px dashed #000; padding-top: 15px; font-size: 10px;">
+                <div>
+                    <p style="margin: 0; font-size: 12px; font-weight: bold; background: #f1f5f9; padding: 6px 12px; border: 1px solid #cbd5e1; display: inline-block;">
+                        TERBILANG: Rp ${(p.nominal||0).toLocaleString('id-ID')}
+                    </p>
+                </div>
+                <div style="text-align: center; width: 180px;">
+                    <p style="margin: 0;">Penerima / Kasir SPS,</p>
+                    <div style="height: 40px;"></div>
+                    <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000;">( Ni Nyoman Suryani )</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const opt = {
+        margin:       0.2,
+        filename:     `Kwitansi_${p.id_bayar || 'Bayar'}_${t.nama.replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'a5', orientation: 'landscape' }
     };
 
     html2pdf().set(opt).from(element).save();

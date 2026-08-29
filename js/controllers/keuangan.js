@@ -24,7 +24,7 @@ export function initKeuanganController() {
     // Stream Data Realtime Transaksi
     db.collection('transaksi').onSnapshot(snapshot => {
         listTrxKeuangan = [];
-        snapshot.forEach(doc => listTrxKeuangan.push({ id: doc.id, type: 'PEMASUKAN', ...doc.data() }));
+        snapshot.forEach(doc => listTrxKeuangan.push({ id: doc.id, ...doc.data() }));
         renderKeuanganUI();
     });
 
@@ -58,49 +58,59 @@ async function savePengeluaran(e) {
     try {
         await db.collection('pengeluaran').add(payload);
         closeModalPengeluaran();
-        window.showAlert("Berhasil!", "Pengeluaran kantor berhasil dicatat.", "success");
+        if (window.showAlert) window.showAlert("Berhasil!", "Pengeluaran kantor berhasil dicatat di Buku Kas.", "success");
     } catch (err) {
-        window.showAlert("Gagal", err.message, "error");
+        if (window.showAlert) window.showAlert("Gagal", err.message, "error");
     }
 }
 
+// 🌟 RENDERING BUKU KAS HARIAN MULTI-PAYMENT
 function renderKeuanganUI() {
     const query = (document.getElementById('fin-search-input')?.value || '').toLowerCase();
     const startDate = document.getElementById('fin-filter-date-start')?.value || '';
     const endDate = document.getElementById('fin-filter-date-end')?.value || '';
     const filterType = document.getElementById('fin-filter-layanan')?.value || 'ALL';
 
-    // Gabungkan Transaksi Pemasukan & Pengeluaran
     let combinedLedger = [];
 
-    // Filter Transaksi Pemasukan
+    // 1. Pecah Setiap Pembayaran Cicilan Menjadi Baris Buku Kas Sesuai Tanggal Bayarnya
     listTrxKeuangan.forEach(t => {
-        const tgl = t.tgl_masuk || '';
-        const ketStr = `${t.nama} - ${t.layanan} (${t.field1 || ''})`.toLowerCase();
+        const riwayat = Array.isArray(t.riwayat_pembayaran) && t.riwayat_pembayaran.length > 0 ? t.riwayat_pembayaran : (t.bayar > 0 ? [{
+            id_bayar: 'PAY-1',
+            tgl: t.tgl_masuk || '',
+            nominal: t.bayar,
+            keterangan: 'Pembayaran DP / Awal',
+            metode: 'Tunai / Transfer'
+        }] : []);
 
-        let matchDate = true;
-        if (startDate && endDate) matchDate = tgl >= startDate && tgl <= endDate;
-        else if (startDate) matchDate = tgl >= startDate;
-        else if (endDate) matchDate = tgl <= endDate;
+        const detailInfo = t.field1 || t.plat || '-';
 
-        let matchQuery = ketStr.includes(query);
-        let matchType = filterType === 'ALL' || filterType === 'PEMASUKAN';
+        riwayat.forEach(p => {
+            const tglBayar = p.tgl || t.tgl_masuk || '';
+            const ketStr = `${t.nama} - ${t.layanan} (${detailInfo}) - ${p.keterangan || ''} - ${p.metode || ''}`.toLowerCase();
 
-        if (matchDate && matchQuery && matchType) {
-            combinedLedger.push({
-                id: t.id,
-                tgl: tgl,
-                ket: `${t.nama} (${t.layanan} • ${t.field1 || '-'})`,
-                kategori: `Biaya Berkas (${t.layanan})`,
-                nominal: t.bayar || 0,
-                modalBerkas: t.biaya_riil || 0,
-                isMasuk: true,
-                rawObj: t
-            });
-        }
+            let matchDate = true;
+            if (startDate && endDate) matchDate = tglBayar >= startDate && tglBayar <= endDate;
+            else if (startDate) matchDate = tglBayar >= startDate;
+            else if (endDate) matchDate = tglBayar <= endDate;
+
+            let matchQuery = ketStr.includes(query);
+            let matchType = filterType === 'ALL' || filterType === 'PEMASUKAN';
+
+            if (matchDate && matchQuery && matchType) {
+                combinedLedger.push({
+                    id: t.id,
+                    tgl: tglBayar,
+                    ket: `${t.nama} (${t.layanan} • ${detailInfo}) - ${p.keterangan || 'Pembayaran'} [${p.metode || 'Kas'}]`,
+                    kategori: `Pemasukan (${t.layanan})`,
+                    nominal: p.nominal || 0,
+                    isMasuk: true
+                });
+            }
+        });
     });
 
-    // Filter Pengeluaran Kantor
+    // 2. Masukkan Pengeluaran Kantor
     listPengeluaran.forEach(p => {
         const tgl = p.tgl || '';
         const ketStr = `${p.ket} - ${p.kategori}`.toLowerCase();
@@ -120,33 +130,40 @@ function renderKeuanganUI() {
                 ket: p.ket,
                 kategori: p.kategori,
                 nominal: p.nominal || 0,
-                modalBerkas: 0,
-                isMasuk: false,
-                rawObj: p
+                isMasuk: false
             });
         }
     });
 
-    // Urutkan Tanggal Terbaru di atas
+    // Urutkan Tanggal Terbaru di Atas
     combinedLedger.sort((a, b) => b.tgl.localeCompare(a.tgl));
 
-    // Hitung Rekapitulasi Statistik Keuangan
+    // 3. Hitung Rekap Statistik Keuangan
     let totalOmset = 0;
-    let totalModalBerkas = 0;
     let totalPengeluaranKantor = 0;
 
     combinedLedger.forEach(item => {
-        if (item.isMasuk) {
-            totalOmset += item.nominal;
-            totalModalBerkas += item.modalBerkas;
-        } else {
-            totalPengeluaranKantor += item.nominal;
+        if (item.isMasuk) totalOmset += item.nominal;
+        else totalPengeluaranKantor += item.nominal;
+    });
+
+    // Total Modal Berkas dari Transaksi yang Masuk Filter
+    let totalModalBerkas = 0;
+    listTrxKeuangan.forEach(t => {
+        const tgl = t.tgl_masuk || '';
+        let matchDate = true;
+        if (startDate && endDate) matchDate = tgl >= startDate && tgl <= endDate;
+        else if (startDate) matchDate = tgl >= startDate;
+        else if (endDate) matchDate = tgl <= endDate;
+
+        if (matchDate) {
+            totalModalBerkas += (t.biaya_riil || 0);
         }
     });
 
     const labaBersih = totalOmset - totalModalBerkas - totalPengeluaranKantor;
 
-    // Update Widget Keuangan
+    // Update Widget Keuangan di UI
     document.getElementById('fin-stat-pemasukan').innerText = `Rp ${totalOmset.toLocaleString('id-ID')}`;
     document.getElementById('fin-stat-modal').innerText = `Rp ${totalModalBerkas.toLocaleString('id-ID')}`;
     document.getElementById('fin-stat-pengeluaran').innerText = `Rp ${totalPengeluaranKantor.toLocaleString('id-ID')}`;
@@ -189,12 +206,14 @@ function resetKeuanganFilter() {
 }
 
 window.deletePengeluaran = function(id) {
-    window.showConfirm("Hapus Pengeluaran", "Apakah Anda yakin ingin menghapus catatan pengeluaran ini?", async () => {
-        try {
-            await db.collection('pengeluaran').doc(id).delete();
-            window.showAlert("Terhapus", "Data pengeluaran berhasil dihapus.", "success");
-        } catch (e) {
-            window.showAlert("Gagal", e.message, "error");
-        }
-    });
+    if (window.showConfirm) {
+        window.showConfirm("Hapus Pengeluaran", "Apakah Anda yakin ingin menghapus catatan pengeluaran ini?", async () => {
+            try {
+                await db.collection('pengeluaran').doc(id).delete();
+                if (window.showAlert) window.showAlert("Terhapus", "Data pengeluaran berhasil dihapus.", "success");
+            } catch (e) {
+                if (window.showAlert) window.showAlert("Gagal", e.message, "error");
+            }
+        });
+    }
 };
