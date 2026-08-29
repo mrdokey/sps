@@ -86,34 +86,46 @@ async function saveConfig(e) {
     }
 }
 
-// 📡 CEK STATUS SESI WA DARI SERVER VPS REALTIME
+// 📡 CEK STATUS SESI WA DARI SERVER VPS REALTIME (DENGAN ANTI-CACHE BUSTER)
 async function checkWAStatus() {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
 
     try {
-        const response = await fetch(`${API_BASE}/status/${SESSION_ID}`);
+        // 🌟 Trik ?t=Date.now() agar browser dilarang menggunakan cache lama
+        const response = await fetch(`${API_BASE}/status/${SESSION_ID}?t=${Date.now()}`);
         if (response.ok) {
             const data = await response.json();
             const status = String(data.status || 'PENDING').toUpperCase();
+            console.log("[Status WA Live dari VPS]:", status);
             renderWASessionUI(status);
         } else {
             renderWASessionUI('PENDING');
         }
     } catch (e) {
+        console.error("Gagal menghubungi VPS status:", e.message);
         renderWASessionUI('PENDING');
     }
 }
 
+// 🎨 RENDER TAMPILAN SESUAI STATUS REALTIME (READY / IDLE / PENDING)
 function renderWASessionUI(status) {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
 
-    const isConnected = (status === 'READY' || status === 'IDLE' || status.includes('CONNECTED') || status.includes('TERHUBUNG'));
+    // Status READY, IDLE, CONNECTED, atau TERHUBUNG dibaca sebagai TERHUBUNG
+    const isConnected = (
+        status === 'READY' || 
+        status === 'IDLE' || 
+        status.includes('READY') || 
+        status.includes('IDLE') || 
+        status.includes('CONNECTED') || 
+        status.includes('TERHUBUNG')
+    );
 
     if (isConnected) {
-        const badgeText = status === 'IDLE' ? 'Terhubung (Idle)' : 'Terhubung (Ready)';
-        const descText = status === 'IDLE' 
+        const badgeText = status.includes('IDLE') ? 'Terhubung (Idle)' : 'Terhubung (Ready)';
+        const descText = status.includes('IDLE') 
             ? "Sesi 'sps' terhubung (mode hemat RAM). Otomatis aktif bangun saat mengirim pesan pengingat."
             : "Sesi 'sps' aktif & siap mengirimkan pengingat jatuh tempo otomatis ke klien.";
 
@@ -131,7 +143,7 @@ function renderWASessionUI(status) {
                         <p class="text-xs text-emerald-800 font-medium mt-1">${descText}</p>
                     </div>
                 </div>
-                <button id="btn-disconnect-wa" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-600 px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-200 transition shadow-sm whitespace-nowrap">
+                <button id="btn-disconnect-wa" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-600 px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-200 transition shadow-sm whitespace-nowrap cursor-pointer">
                     <i class="fa-solid fa-power-off mr-1.5"></i>Putuskan Sesi
                 </button>
             </div>
@@ -146,7 +158,7 @@ function renderWASessionUI(status) {
                 </div>
                 <div class="flex gap-2">
                     <input type="tel" id="pairing-phone" placeholder="Masukkan No. HP Biro Jasa (Contoh: 085237044224)" class="flex-1 px-3.5 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
-                    <button id="btn-request-pair" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition shadow-sm whitespace-nowrap">Minta Kode</button>
+                    <button id="btn-request-pair" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition shadow-sm whitespace-nowrap cursor-pointer">Minta Kode</button>
                 </div>
                 <div id="display-pairing-code" class="hidden text-center p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-2 mt-2">
                     <span class="text-xs text-emerald-800 font-semibold uppercase tracking-wider">Kode Pairing WhatsApp Anda</span>
@@ -183,7 +195,7 @@ async function disconnectWASession() {
     if (window.showConfirm) {
         window.showConfirm("Putuskan Sesi WA", "Apakah Anda yakin ingin memutuskan koneksi WhatsApp sesi 'sps'?", async () => {
             try {
-                await fetch(`${API_BASE}/delete/${SESSION_ID}`);
+                await fetch(`${API_BASE}/delete/${SESSION_ID}?t=${Date.now()}`);
                 if (window.showAlert) window.showAlert("Terputus", "Sesi WhatsApp berhasil dihentikan.", "info");
                 checkWAStatus();
             } catch(e) {
@@ -210,7 +222,7 @@ function appendLayananSection() {
         <form id="form-add-layanan" class="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
             <input type="text" id="layanan-nama-input" placeholder="Nama Layanan (Contoh: SAMSAT BALI)" class="px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-orange-500" required>
             <input type="number" id="layanan-tarif-input" placeholder="Tarif Jasa (Rp)" class="px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-orange-500" required>
-            <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl text-xs py-2 shadow-sm transition">
+            <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-xl text-xs py-2 shadow-sm transition cursor-pointer">
                 + Tambah Layanan
             </button>
         </form>
@@ -248,7 +260,7 @@ function renderLayananUI() {
                     <span class="font-bold text-gray-800">${item.nama}</span>
                     <p class="text-gray-500 text-[11px] mt-0.5">Tarif Dasar Jasa: <strong class="text-emerald-600">Rp ${(item.tarif||0).toLocaleString('id-ID')}</strong></p>
                 </div>
-                <button onclick="window.deleteLayananItem('${item.id}')" class="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition">
+                <button onclick="window.deleteLayananItem('${item.id}')" class="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition cursor-pointer">
                     <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
@@ -319,7 +331,7 @@ function appendPairingSection() {
     parent.appendChild(pairingDiv);
 }
 
-// 🔴 AREA BAHAYA: DUA TOMBOL RESET AMAN (RESET KEUANGAN vs RESET TOTAL)
+// 🔴 AREA BAHAYA: DUA TOMBOL RESET AMAN
 function appendResetDatabaseSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;
@@ -331,7 +343,6 @@ function appendResetDatabaseSection() {
             <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>Area Bahaya: Manajemen & Reset Data
         </h3>
         
-        <!-- OPSI 1: RESET KEUANGAN & NOL-KAN PIUTANG (DATA BERKAS TETAP UTUH) -->
         <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-2">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-coins text-amber-600 text-base"></i>
@@ -346,7 +357,6 @@ function appendResetDatabaseSection() {
             </button>
         </div>
 
-        <!-- OPSI 2: RESET TOTAL SELURUH DATABASE -->
         <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl space-y-2">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-trash-can text-rose-600 text-base"></i>
@@ -362,7 +372,6 @@ function appendResetDatabaseSection() {
     `;
     parent.appendChild(resetDiv);
 
-    // 🌟 1. EVENT HANDLER: RESET PEMBUKUAN & NOL-KAN PIUTANG (DATA BERKAS AMAN)
     document.getElementById('btn-reset-financials-only')?.addEventListener('click', () => {
         if (window.showConfirm) {
             window.showConfirm(
@@ -373,7 +382,6 @@ function appendResetDatabaseSection() {
                         const btn = document.getElementById('btn-reset-financials-only');
                         if (btn) { btn.disabled = true; btn.innerText = "Memproses..."; }
 
-                        // 1. Ambil seluruh transaksi dan update secara batch (chunk per 400 dokumen)
                         const trxSnap = await db.collection('transaksi').get();
                         const batchPromises = [];
                         let currentBatch = db.batch();
@@ -401,7 +409,6 @@ function appendResetDatabaseSection() {
 
                         await Promise.all(batchPromises);
 
-                        // 2. Bersihkan catatan pengeluaran operasional lama
                         const pSnap = await db.collection('pengeluaran').get();
                         const pBatch = db.batch();
                         pSnap.forEach(doc => pBatch.delete(doc.ref));
@@ -419,7 +426,6 @@ function appendResetDatabaseSection() {
         }
     });
 
-    // 🌟 2. EVENT HANDLER: RESET TOTAL SELURUH DATABASE
     document.getElementById('btn-reset-db-all')?.addEventListener('click', () => {
         if (window.showConfirm) {
             window.showConfirm(
