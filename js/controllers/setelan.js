@@ -21,7 +21,7 @@ export function initSetelanController() {
     formConfig = document.getElementById('form-config');
     formConfig?.addEventListener('submit', saveConfig);
 
-    // Injeksi Seluruh Seksi Komponen Setelan
+    // Injeksi Seluruh Seksi Setelan
     appendLayananSection();
     appendOperatorSection();
     appendPairingSection();
@@ -105,7 +105,6 @@ async function checkWAStatus() {
     }
 }
 
-// 🎨 RENDER TAMPILAN SESUAI STATUS REALTIME (READY / IDLE / PENDING)
 function renderWASessionUI(status) {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
@@ -230,7 +229,7 @@ function appendLayananSection() {
         try {
             await db.collection('layanan').add({ nama, tarif, createdAt: new Date().toISOString() });
             document.getElementById('form-add-layanan').reset();
-            if (window.showAlert) window.showAlert("Berhasil", "Layanan baru berhasil ditambahkan ke katalog!", "success");
+            if (window.showAlert) window.showAlert("Berhasil", "Layanan baru berhasil ditambahkan!", "success");
         } catch (err) {
             if (window.showAlert) window.showAlert("Gagal", err.message, "error");
         }
@@ -320,26 +319,112 @@ function appendPairingSection() {
     parent.appendChild(pairingDiv);
 }
 
+// 🔴 AREA BAHAYA: DUA TOMBOL RESET AMAN (RESET KEUANGAN vs RESET TOTAL)
 function appendResetDatabaseSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;
 
     const resetDiv = document.createElement('div');
-    resetDiv.className = "bg-white p-6 rounded-2xl shadow-sm border border-rose-100 max-w-2xl mt-6 space-y-3 bg-rose-50/20";
+    resetDiv.className = "bg-white p-6 rounded-2xl shadow-sm border border-rose-100 max-w-2xl mt-6 space-y-4 bg-rose-50/20";
     resetDiv.innerHTML = `
-        <h3 class="text-base font-bold text-rose-800 border-b border-rose-100 pb-2"><i class="fa-solid fa-triangle-exclamation text-rose-600 mr-2"></i>Area Bahaya: Reset Database</h3>
-        <p class="text-xs text-gray-500 leading-relaxed">Gunakan tombol ini setelah masa pengujian selesai untuk membersihkan seluruh data dummy (Transaksi, Klien, dan Pengeluaran) sebelum aplikasi diserahkan ke klien.</p>
-        <button id="btn-reset-db-all" type="button" class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm">
-            <i class="fa-solid fa-trash-can mr-2"></i>Bersihkan Semua Data Uji Coba
-        </button>
+        <h3 class="text-base font-bold text-rose-800 border-b border-rose-100 pb-2 flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>Area Bahaya: Manajemen & Reset Data
+        </h3>
+        
+        <!-- OPSI 1: RESET KEUANGAN & NOL-KAN PIUTANG (DATA BERKAS TETAP UTUH) -->
+        <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-coins text-amber-600 text-base"></i>
+                <h4 class="font-bold text-amber-900 text-sm">Opsi 1: Nol-kan Piutang & Reset Pembukuan (Data Berkas Tersimpan)</h4>
+            </div>
+            <p class="text-xs text-amber-800 leading-relaxed">
+                Menyetel seluruh tagihan lama menjadi <strong>Rp 0</strong> dan piutang menjadi <strong>Lunas/Rp 0</strong>. 
+                <br>✅ <em>Semua 778 data nama klien, plat nomor, tanggal masuk, dan jatuh tempo tetap utuh/tersimpan (alarm & reminder tetap aktif). Sangat cocok untuk persiapan Go-Live awal September!</em>
+            </p>
+            <button id="btn-reset-financials-only" type="button" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+                <i class="fa-solid fa-rotate mr-1.5"></i>Nol-kan Piutang & Mulai Pembukuan Baru
+            </button>
+        </div>
+
+        <!-- OPSI 2: RESET TOTAL SELURUH DATABASE -->
+        <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl space-y-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-trash-can text-rose-600 text-base"></i>
+                <h4 class="font-bold text-rose-900 text-sm">Opsi 2: Reset Total Database (Hapus Bersih)</h4>
+            </div>
+            <p class="text-xs text-rose-800 leading-relaxed">
+                Menghapus seluruh data Transaksi, Klien, dan Pengeluaran secara permanen dari server.
+            </p>
+            <button id="btn-reset-db-all" type="button" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+                <i class="fa-solid fa-trash mr-1.5"></i>Hapus Bersih Seluruh Data
+            </button>
+        </div>
     `;
     parent.appendChild(resetDiv);
 
+    // 🌟 1. EVENT HANDLER: RESET PEMBUKUAN & NOL-KAN PIUTANG (DATA BERKAS AMAN)
+    document.getElementById('btn-reset-financials-only')?.addEventListener('click', () => {
+        if (window.showConfirm) {
+            window.showConfirm(
+                "NOL-KAN PIUTANG & RESET PEMBUKUAN?",
+                "Tindakan ini akan menyetel semua Tagihan lama menjadi Rp 0 dan Piutang menjadi Rp 0. Data nama klien, plat kendaraan, dan tanggal jatuh tempo TETAP DISIMPAN AMAN. Lanjutkan?",
+                async () => {
+                    try {
+                        const btn = document.getElementById('btn-reset-financials-only');
+                        if (btn) { btn.disabled = true; btn.innerText = "Memproses..."; }
+
+                        // 1. Ambil seluruh transaksi dan update secara batch (chunk per 400 dokumen)
+                        const trxSnap = await db.collection('transaksi').get();
+                        const batchPromises = [];
+                        let currentBatch = db.batch();
+                        let count = 0;
+
+                        trxSnap.forEach(doc => {
+                            currentBatch.update(doc.ref, {
+                                total: 0,
+                                bayar: 0,
+                                biaya_riil: 0,
+                                status_bayar: 'LUNAS',
+                                riwayat_pembayaran: []
+                            });
+                            count++;
+                            if (count === 400) {
+                                batchPromises.push(currentBatch.commit());
+                                currentBatch = db.batch();
+                                count = 0;
+                            }
+                        });
+
+                        if (count > 0) {
+                            batchPromises.push(currentBatch.commit());
+                        }
+
+                        await Promise.all(batchPromises);
+
+                        // 2. Bersihkan catatan pengeluaran operasional lama
+                        const pSnap = await db.collection('pengeluaran').get();
+                        const pBatch = db.batch();
+                        pSnap.forEach(doc => pBatch.delete(doc.ref));
+                        await pBatch.commit();
+
+                        if (btn) { btn.disabled = false; btn.innerText = "Nol-kan Piutang & Mulai Pembukuan Baru"; }
+                        if (window.showAlert) {
+                            window.showAlert("Berhasil Reset Pembukuan!", "Seluruh piutang & omset lama telah disetel ke Rp 0. Semua data berkas klien tetap aman dan sistem siap Go-Live untuk September!", "success");
+                        }
+                    } catch (e) {
+                        if (window.showAlert) window.showAlert("Gagal Reset", e.message, "error");
+                    }
+                }
+            );
+        }
+    });
+
+    // 🌟 2. EVENT HANDLER: RESET TOTAL SELURUH DATABASE
     document.getElementById('btn-reset-db-all')?.addEventListener('click', () => {
         if (window.showConfirm) {
             window.showConfirm(
-                "⚠️ HAPUS SEMUA DATA DUMMY",
-                "Apakah Anda YAKIN ingin menghapus SELURUH data Transaksi, Klien, dan Buku Kas secara permanen? Tindakan ini tidak dapat dibatalkan!",
+                "⚠️ HAPUS BERSIH SEMUA DATA?",
+                "Apakah Anda YAKIN ingin menghapus SELURUH data Transaksi, Klien, dan Buku Kas secara permanen? Data tidak dapat dikembalikan!",
                 async () => {
                     try {
                         const trxSnap = await db.collection('transaksi').get();
@@ -351,7 +436,7 @@ function appendResetDatabaseSection() {
                         const pSnap = await db.collection('pengeluaran').get();
                         pSnap.forEach(doc => doc.ref.delete());
 
-                        if (window.showAlert) window.showAlert("Berhasil Reset!", "Seluruh data uji coba telah dibersihkan total. Database sekarang 100% bersih dan siap digunakan produksi!", "success");
+                        if (window.showAlert) window.showAlert("Berhasil!", "Seluruh database telah dihapus bersih total.", "success");
                     } catch (e) {
                         if (window.showAlert) window.showAlert("Gagal Reset", e.message, "error");
                     }

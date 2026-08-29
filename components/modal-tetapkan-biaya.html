@@ -1,0 +1,50 @@
+<div id="modal-tetapkan-biaya" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-coins text-orange-600"></i>Tetapkan Biaya & Kirim Tagihan
+            </h3>
+            <button id="btn-close-modal-tetapkan" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+
+        <form id="form-tetapkan-biaya" class="space-y-3">
+            <input type="hidden" id="tetapkan-trx-id">
+            
+            <div class="bg-orange-50/70 p-3.5 rounded-2xl space-y-1 text-xs text-orange-950 border border-orange-100">
+                <p><strong>Nama Klien:</strong> <span id="tetapkan-nama" class="font-bold text-gray-900">-</span></p>
+                <p><strong>Layanan:</strong> <span id="tetapkan-layanan" class="font-bold text-gray-900">-</span></p>
+                <p class="text-[10.5px] text-orange-800 mt-1 leading-relaxed">💡 Masukkan biaya riil Samsat dan total tagihan klien setelah selesai cek pajak di loket.</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Total Tagihan Klien (Rp) *</label>
+                <input type="number" id="tetapkan-total" placeholder="Contoh: 1250000" class="w-full px-4 py-2.5 border rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-orange-500" required>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-amber-800 mb-1">Biaya Riil / Modal Samsat (Rp)</label>
+                <input type="number" id="tetapkan-biaya-riil" placeholder="Contoh: 1100000" class="w-full px-4 py-2.5 border border-amber-200 bg-amber-50/50 rounded-xl text-sm font-medium text-amber-900 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Sudah Dibayar (DP)</label>
+                    <input type="number" id="tetapkan-bayar" placeholder="0" class="w-full px-3 py-2 border rounded-xl text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Status Berkas</label>
+                    <select id="tetapkan-status-berkas" class="w-full px-3 py-2 border rounded-xl text-sm">
+                        <option value="PENDING">PENDING</option>
+                        <option value="PROSES" selected>PROSES</option>
+                        <option value="SELESAI">SELESAI</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="pt-3 flex justify-end gap-2 border-t mt-4">
+                <button type="button" id="btn-cancel-tetapkan" class="px-4 py-2 border rounded-xl text-xs font-medium text-gray-600">Batal</button>
+                <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-semibold shadow">Simpan & Kirim WA Tagihan</button>
+            </div>
+        </form>
+    </div>
+</div>

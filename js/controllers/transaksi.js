@@ -5,8 +5,10 @@ import { configGlobal } from './setelan.js';
 let listTransaksi = [];
 let uploadedPhotos = [];
 let currentPelunasanTrx = null;
+let currentTetapkanTrx = null;
 let containerTrx, formTrx, modalTrx, selectLayanan;
 let formPelunasan, modalPelunasan;
+let formTetapkan, modalTetapkan;
 
 let groupCollapsed = {
     PENDING: false,
@@ -28,6 +30,9 @@ export function initTransaksiController() {
     formPelunasan = document.getElementById('form-pelunasan');
     modalPelunasan = document.getElementById('modal-pelunasan');
 
+    formTetapkan = document.getElementById('form-tetapkan-biaya');
+    modalTetapkan = document.getElementById('modal-tetapkan-biaya');
+
     document.getElementById('btn-open-add-trx')?.addEventListener('click', () => openModal());
     document.getElementById('btn-close-modal-trx')?.addEventListener('click', closeModal);
     document.getElementById('btn-cancel-trx')?.addEventListener('click', closeModal);
@@ -35,12 +40,17 @@ export function initTransaksiController() {
     document.getElementById('btn-close-modal-pelunasan')?.addEventListener('click', closeModalPelunasan);
     document.getElementById('btn-cancel-pelunasan')?.addEventListener('click', closeModalPelunasan);
 
+    document.getElementById('btn-close-modal-tetapkan')?.addEventListener('click', closeModalTetapkan);
+    document.getElementById('btn-cancel-tetapkan')?.addEventListener('click', closeModalTetapkan);
+
     selectLayanan?.addEventListener('change', handleLayananUiChange);
     formTrx?.addEventListener('submit', saveTransaksi);
     formPelunasan?.addEventListener('submit', savePelunasan);
+    formTetapkan?.addEventListener('submit', saveTetapkanBiaya);
 
     document.getElementById('trx-foto-input')?.addEventListener('change', handleFotoUpload);
 
+    // Filter & Sorting Listeners
     document.getElementById('search-input')?.addEventListener('keyup', runFilterAndSort);
     document.getElementById('filter-date-start')?.addEventListener('change', runFilterAndSort);
     document.getElementById('filter-date-end')?.addEventListener('change', runFilterAndSort);
@@ -175,7 +185,7 @@ function openModal(data = null) {
         document.getElementById('trx-total').value = data.total || 0;
         document.getElementById('trx-bayar').value = data.bayar || 0;
         document.getElementById('trx-biaya-riil').value = data.biaya_riil || 0;
-        document.getElementById('trx-status-bayar').value = data.status_bayar;
+        document.getElementById('trx-status-bayar').value = data.status_bayar || 'MENUNGGU CEK BIAYA';
         document.getElementById('trx-status-berkas').value = data.status_berkas;
 
         if (Array.isArray(data.fotos)) uploadedPhotos = [...data.fotos];
@@ -187,6 +197,89 @@ function openModal(data = null) {
 }
 
 function closeModal() { modalTrx?.classList.add('hidden'); }
+
+// 💰 BUKA MODAL TETAPKAN BIAYA
+window.openTetapkanBiayaModal = function(id) {
+    const tData = listTransaksi.find(item => item.id === id);
+    if (!tData) return;
+
+    currentTetapkanTrx = tData;
+    formTetapkan?.reset();
+
+    const infoDetail = tData.field1 || tData.plat || '-';
+
+    document.getElementById('tetapkan-trx-id').value = tData.id;
+    document.getElementById('tetapkan-nama').innerText = tData.nama;
+    document.getElementById('tetapkan-layanan').innerText = `${tData.layanan} (${infoDetail})`;
+    document.getElementById('tetapkan-total').value = tData.total > 0 ? tData.total : '';
+    document.getElementById('tetapkan-biaya-riil').value = tData.biaya_riil > 0 ? tData.biaya_riil : '';
+    document.getElementById('tetapkan-bayar').value = tData.bayar || 0;
+    document.getElementById('tetapkan-status-berkas').value = tData.status_berkas || 'PROSES';
+
+    modalTetapkan?.classList.remove('hidden');
+};
+
+function closeModalTetapkan() { modalTetapkan?.classList.add('hidden'); }
+
+async function saveTetapkanBiaya(e) {
+    e.preventDefault();
+    if (!currentTetapkanTrx) return;
+
+    const total = parseInt(document.getElementById('tetapkan-total').value) || 0;
+    const biaya_riil = parseInt(document.getElementById('tetapkan-biaya-riil').value) || 0;
+    const bayar = parseInt(document.getElementById('tetapkan-bayar').value) || (currentTetapkanTrx.bayar || 0);
+    const status_berkas = document.getElementById('tetapkan-status-berkas').value;
+
+    if (total <= 0) {
+        if (window.showAlert) window.showAlert("Perhatian", "Total tagihan harus lebih dari Rp 0!", "info");
+        return;
+    }
+
+    const sisa = total - bayar;
+    const status_bayar = (bayar >= total) ? "LUNAS" : (bayar > 0 ? "DP" : "BELUM BAYAR");
+
+    // Update / inisialisasi riwayat pembayaran jika ada bayar
+    let riwayat = Array.isArray(currentTetapkanTrx.riwayat_pembayaran) ? [...currentTetapkanTrx.riwayat_pembayaran] : [];
+    if (bayar > 0 && riwayat.length === 0) {
+        riwayat.push({
+            id_bayar: 'PAY-1',
+            tgl: currentTetapkanTrx.tgl_masuk || new Date().toISOString().split('T')[0],
+            nominal: bayar,
+            keterangan: (bayar >= total) ? 'Pembayaran Penuh (Lunas)' : 'Uang Muka / DP',
+            metode: 'Tunai / Transfer'
+        });
+    }
+
+    try {
+        await db.collection('transaksi').doc(currentTetapkanTrx.id).update({
+            total: total,
+            biaya_riil: biaya_riil,
+            bayar: bayar,
+            status_bayar: status_bayar,
+            status_berkas: status_berkas,
+            riwayat_pembayaran: riwayat
+        });
+
+        // 🌟 KIRIM WA INVOICE RESMI SETELAH BIAYA SELESAI DICEK DI SAMSAT
+        const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentTetapkanTrx.id}`;
+        const infoDetail = currentTetapkanTrx.field1 || currentTetapkanTrx.plat || '-';
+
+        const pesanTagihan = `Halo *${currentTetapkanTrx.nama}*,\n\n` +
+                             `Biaya pengurusan berkas *${currentTetapkanTrx.layanan}* (${infoDetail}) Anda telah *SELESAI KAMI CEK* di loket Samsat dengan rincian sebagai berikut:\n\n` +
+                             `• Total Biaya Tagihan: *Rp ${total.toLocaleString('id-ID')}*\n` +
+                             `• Sudah Dibayar: *Rp ${bayar.toLocaleString('id-ID')}*\n` +
+                             `• Sisa Pembayaran: *Rp ${sisa > 0 ? sisa.toLocaleString('id-ID') : '0 (LUNAS)'}*\n\n` +
+                             `📄 *Rincian Invoice & Rekening Transfer:* ${publicInvoiceUrl}\n\n` +
+                             `Mohon konfirmasinya untuk proses selanjutnya. Terima kasih.`;
+
+        sendWA(currentTetapkanTrx.wa, pesanTagihan);
+
+        closeModalTetapkan();
+        if (window.showAlert) window.showAlert("Biaya Ditetapkan!", "Total biaya berhasil disimpan & Invoice WA telah terkirim ke klien!", "success");
+    } catch (err) {
+        if (window.showAlert) window.showAlert("Gagal", err.message, "error");
+    }
+}
 
 // 💵 BUKA MODAL MULTI-PAYMENT & RIWAYAT PEMBAYARAN
 window.openPelunasanModal = function(id) {
@@ -208,7 +301,6 @@ window.openPelunasanModal = function(id) {
     document.getElementById('pelunasan-tgl').value = new Date().toISOString().split('T')[0];
     document.getElementById('pelunasan-nominal').value = sisa > 0 ? sisa : 0;
     
-    // Set auto-suggest keterangan
     const paymentCount = Array.isArray(tData.riwayat_pembayaran) ? tData.riwayat_pembayaran.length : (tData.bayar > 0 ? 1 : 0);
     document.getElementById('pelunasan-keterangan').value = sisa <= 0 ? "Pelunasan Tagihan" : `Pembayaran Cicilan ke-${paymentCount + 1}`;
 
@@ -254,7 +346,6 @@ function renderRiwayatPembayaranModal(tData) {
     container.innerHTML = html || '<p class="text-xs text-gray-400 italic text-center py-2">Belum ada riwayat pembayaran.</p>';
 }
 
-// 💵 EKSEKUSI PEMBAYARAN CICILAN / PELUNASAN + AUTO-SYNC KAS & WA
 async function savePelunasan(e) {
     e.preventDefault();
     if (!currentPelunasanTrx) return;
@@ -269,7 +360,6 @@ async function savePelunasan(e) {
         return;
     }
 
-    // Ambil riwayat lama atau inisialisasi jika data lama
     let riwayat = Array.isArray(currentPelunasanTrx.riwayat_pembayaran) ? [...currentPelunasanTrx.riwayat_pembayaran] : (currentPelunasanTrx.bayar > 0 ? [{
         id_bayar: 'PAY-1',
         tgl: currentPelunasanTrx.tgl_masuk || tglBayar,
@@ -278,7 +368,6 @@ async function savePelunasan(e) {
         metode: 'Tunai / Transfer'
     }] : []);
 
-    // Tambahkan record pembayaran baru
     const newPayment = {
         id_bayar: `PAY-${riwayat.length + 1}`,
         tgl: tglBayar,
@@ -288,7 +377,6 @@ async function savePelunasan(e) {
     };
     riwayat.push(newPayment);
 
-    // Hitung total akumulasi pembayaran
     const totalBaruBayar = riwayat.reduce((acc, cur) => acc + (cur.nominal || 0), 0);
     const sisaAkhir = (currentPelunasanTrx.total || 0) - totalBaruBayar;
     const isLunas = sisaAkhir <= 0;
@@ -301,7 +389,6 @@ async function savePelunasan(e) {
             riwayat_pembayaran: riwayat
         });
 
-        // Auto-Kirim Pesan WhatsApp Kwitansi Digital ke Klien
         const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${currentPelunasanTrx.id}`;
         const infoDetail = currentPelunasanTrx.field1 || currentPelunasanTrx.plat || '-';
         
@@ -317,7 +404,7 @@ async function savePelunasan(e) {
         sendWA(currentPelunasanTrx.wa, pesanWA);
 
         closeModalPelunasan();
-        if (window.showAlert) window.showAlert("Pembayaran Berhasil!", `Pembayaran Rp ${nominalTambah.toLocaleString('id-ID')} berhasil dicatat di Buku Kas & Kwitansi WA telah terkirim!`, "success");
+        if (window.showAlert) window.showAlert("Pembayaran Berhasil!", `Pembayaran Rp ${nominalTambah.toLocaleString('id-ID')} berhasil dicatat & Kwitansi WA telah terkirim!`, "success");
     } catch (err) {
         if (window.showAlert) window.showAlert("Gagal", err.message, "error");
     }
@@ -338,9 +425,19 @@ async function saveTransaksi(e) {
     const bayar = parseInt(document.getElementById('trx-bayar').value) || 0;
     const biaya_riil = parseInt(document.getElementById('trx-biaya-riil').value) || 0;
     const status_berkas = document.getElementById('trx-status-berkas').value;
-    const status_bayar = (bayar >= total && total > 0) ? "LUNAS" : (bayar > 0 ? "DP" : "BELUM BAYAR");
+    
+    // Penentuan Status Bayar Fleksibel
+    let status_bayar = document.getElementById('trx-status-bayar').value;
+    if (total === 0) {
+        status_bayar = "MENUNGGU CEK BIAYA";
+    } else if (bayar >= total && total > 0) {
+        status_bayar = "LUNAS";
+    } else if (bayar > 0) {
+        status_bayar = "DP";
+    } else {
+        status_bayar = "BELUM BAYAR";
+    }
 
-    // Otomatis buat Riwayat Pembayaran #1 (DP/Awal) jika ada pembayaran di form registrasi
     let riwayat = [];
     if (bayar > 0) {
         riwayat.push({
@@ -373,7 +470,6 @@ async function saveTransaksi(e) {
         let docRefId = id;
         if (id) {
             const oldData = listTransaksi.find(item => item.id === id);
-            // Pertahankan riwayat cicilan lama jika ada
             if (oldData && Array.isArray(oldData.riwayat_pembayaran)) {
                 payload.riwayat_pembayaran = oldData.riwayat_pembayaran;
             }
@@ -391,11 +487,24 @@ async function saveTransaksi(e) {
 
             const publicInvoiceUrl = `https://mrdokey.github.io/sps/invoice.html?id=${docRefId}`;
             const unitDetail = field2 ? ` (${field2})` : '';
-            const pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}${unitDetail}) di Biro Jasa SPS.\n\n` +
-                                `• Total Tagihan: *Rp ${total.toLocaleString('id-ID')}*\n` +
-                                `• Pembayaran Awal (DP): *Rp ${bayar.toLocaleString('id-ID')}*\n` +
-                                `• Sisa Tagihan: *Rp ${(total - bayar).toLocaleString('id-ID')}*\n\n` +
-                                `📄 *Rincian Invoice & Kwitansi Digital:* ${publicInvoiceUrl}\n\nTerima kasih.`;
+
+            // 🌟 LOGIKA PESAN WA: TITIP BERKAS vs INVOICE TAGIHAN LANGSUNG
+            let pesanWaBaru = "";
+            if (total === 0) {
+                // Pesan Surat Tanda Terima Titip Berkas
+                pesanWaBaru = `Halo *${nama}*,\n\n` +
+                              `Dokumen fisik pengurusan berkas *${layanan}* (${field1}${unitDetail}) Anda telah *KAMI TERIMA DENGAN AMAN* di kantor Biro Jasa SPS dan sedang dalam proses pengecekan biaya pajak di loket Samsat.\n\n` +
+                              `📄 *Surat Tanda Terima Titip Berkas:* ${publicInvoiceUrl}\n\n` +
+                              `Kami akan segera menginfokan rincian total biayanya setelah pengecekan selesai. Terima kasih.`;
+            } else {
+                // Pesan Invoice Tagihan Normal
+                pesanWaBaru = `Halo *${nama}*, terima kasih telah mendaftarkan pengurusan berkas *${layanan}* (${field1}${unitDetail}) di Biro Jasa SPS.\n\n` +
+                              `• Total Tagihan: *Rp ${total.toLocaleString('id-ID')}*\n` +
+                              `• Pembayaran Awal (DP): *Rp ${bayar.toLocaleString('id-ID')}*\n` +
+                              `• Sisa Tagihan: *Rp ${(total - bayar).toLocaleString('id-ID')}*\n\n` +
+                              `📄 *Rincian Invoice & Kwitansi Digital:* ${publicInvoiceUrl}\n\nTerima kasih.`;
+            }
+
             sendWA(wa, pesanWaBaru);
         }
 
@@ -477,32 +586,64 @@ function renderTransaksiList(data) {
             const info2 = t.field2 ? ` (${t.field2})` : (t.unit ? ` (${t.unit})` : '');
             const sisa = (t.total || 0) - (t.bayar || 0);
 
-            const badgeBayar = t.status_bayar === 'LUNAS' ? 'bg-emerald-100 text-emerald-800' : (t.status_bayar === 'DP' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800');
+            // Badge Status Bayar Dinamis
+            let badgeBayar = 'bg-rose-100 text-rose-800';
+            if (t.status_bayar === 'LUNAS') badgeBayar = 'bg-emerald-100 text-emerald-800';
+            else if (t.status_bayar === 'DP') badgeBayar = 'bg-amber-100 text-amber-800';
+            else if (t.status_bayar === 'MENUNGGU CEK BIAYA' || t.total === 0) badgeBayar = 'bg-purple-100 text-purple-800';
+
             const badgeBerkas = t.status_berkas === 'SELESAI' ? 'bg-emerald-100 text-emerald-800' : (t.status_berkas === 'PROSES' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800');
             
             const fotosList = Array.isArray(t.fotos) ? t.fotos : [];
             const fotoBadge = fotosList.length > 0 ? `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold"><i class="fa-solid fa-paperclip mr-1"></i>${fotosList.length} Foto</span>` : '';
 
-            // Hitung kali pembayaran
             const payCount = Array.isArray(t.riwayat_pembayaran) ? t.riwayat_pembayaran.length : (t.bayar > 0 ? 1 : 0);
             const payBadge = `<span class="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded border border-emerald-200">${payCount}x Bayar</span>`;
 
             const btnActionProses = t.status_berkas !== 'PROSES' ? `<button onclick='window.updateStatusBerkas("${t.id}", "PROSES")' class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold cursor-pointer">Proses</button>` : '';
             const btnActionSelesai = t.status_berkas !== 'SELESAI' ? `<button onclick='window.updateStatusBerkas("${t.id}", "SELESAI")' class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold cursor-pointer">Selesai</button>` : '';
 
-            // Tombol Bayar / Cicilan
-            const btnBayarCicil = `
-                <button onclick='window.openPelunasanModal("${t.id}")' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>${sisa <= 0 ? 'Riwayat Bayar' : 'Bayar / Cicil'}
-                </button>
-            `;
+            // 💰 TOMBOL TETAPKAN BIAYA vs TOMBOL BAYAR CICILAN
+            let btnBiayaAction = '';
+            if (t.total === 0 || t.status_bayar === 'MENUNGGU CEK BIAYA') {
+                btnBiayaAction = `
+                    <button onclick='window.openTetapkanBiayaModal("${t.id}")' class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
+                        <i class="fa-solid fa-coins"></i>Tetapkan Biaya
+                    </button>
+                `;
+            } else {
+                btnBiayaAction = `
+                    <button onclick='window.openPelunasanModal("${t.id}")' class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center gap-1 cursor-pointer">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>${sisa <= 0 ? 'Riwayat Bayar' : 'Bayar / Cicil'}
+                    </button>
+                `;
+            }
+
+            // Teks Rincian Tagihan
+            let textBiayaSection = '';
+            if (t.total === 0 || t.status_bayar === 'MENUNGGU CEK BIAYA') {
+                textBiayaSection = `
+                    <div class="mt-4 pt-3 border-t text-xs bg-purple-50/50 p-2.5 rounded-xl text-purple-900 border border-purple-100">
+                        <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-hourglass-half text-purple-600"></i>Biaya Belum Ditetapkan</p>
+                        <p class="text-[11px] text-purple-700 mt-0.5">Berkas fisik sedang dalam proses pengecekan di loket Samsat.</p>
+                    </div>
+                `;
+            } else {
+                textBiayaSection = `
+                    <div class="mt-4 pt-3 border-t text-xs space-y-1">
+                        <div class="flex justify-between text-gray-500"><span>Total Tagihan:</span><span>Rp ${(t.total||0).toLocaleString('id-ID')}</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Sudah Dibayar:</span><span>Rp ${(t.bayar||0).toLocaleString('id-ID')}</span></div>
+                        <div class="flex justify-between font-bold text-rose-600"><span>Sisa Piutang:</span><span>Rp ${sisa.toLocaleString('id-ID')}</span></div>
+                    </div>
+                `;
+            }
 
             cardsHtml += `
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div>
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center gap-1.5">
-                                <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar}</span>
+                                <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBayar}">${t.status_bayar || 'MENUNGGU CEK BIAYA'}</span>
                                 ${payBadge}
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-full font-bold ${badgeBerkas}">${t.status_berkas}</span>
@@ -516,19 +657,14 @@ function renderTransaksiList(data) {
                                 ${fotoBadge}
                             </div>
                         </div>
-                        
-                        <div class="mt-4 pt-3 border-t text-xs space-y-1">
-                            <div class="flex justify-between text-gray-500"><span>Total Tagihan:</span><span>Rp ${(t.total||0).toLocaleString('id-ID')}</span></div>
-                            <div class="flex justify-between text-gray-500"><span>Sudah Dibayar:</span><span>Rp ${(t.bayar||0).toLocaleString('id-ID')}</span></div>
-                            <div class="flex justify-between font-bold text-rose-600"><span>Sisa Piutang:</span><span>Rp ${sisa.toLocaleString('id-ID')}</span></div>
-                        </div>
+                        ${textBiayaSection}
                     </div>
 
                     <div class="flex flex-col gap-2 mt-4 pt-3 border-t">
                         <div class="flex gap-2 items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-100">
                             <span class="text-[10px] font-bold text-gray-400 uppercase">Aksi:</span>
                             <div class="flex gap-1.5 items-center">
-                                ${btnBayarCicil}
+                                ${btnBiayaAction}
                                 ${btnActionProses}
                                 ${btnActionSelesai}
                             </div>
@@ -536,7 +672,7 @@ function renderTransaksiList(data) {
 
                         <div class="flex items-center justify-between gap-2 mt-1">
                             <button onclick='window.printPrimaNota("${t.id}")' class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-bold shadow-sm transition cursor-pointer flex items-center gap-1">
-                                <i class="fa-solid fa-file-contract"></i>Prima Nota
+                                <i class="fa-solid fa-file-contract"></i>${t.total === 0 ? 'Tanda Terima' : 'Prima Nota'}
                             </button>
 
                             <div class="flex gap-1.5">
@@ -649,11 +785,12 @@ window.deleteTransaksi = function(id) {
     }
 };
 
-// 📄 FUNGSI CETAK PRIMA NOTA AKUMULASI (DENGAN TABEL SELURUH CICILAN)
+// 📄 FUNGSI CETAK PRIMA NOTA / TANDA TERIMA TITIP BERKAS
 window.printPrimaNota = function(id) {
     const t = typeof id === 'object' ? id : listTransaksi.find(item => item.id === id);
     if (!t) return;
 
+    const isTitipBerkas = (t.total === 0 || t.status_bayar === 'MENUNGGU CEK BIAYA');
     const infoDetail = t.field1 || t.plat || t.bangunan || '-';
     const unitDetail = t.field2 ? ` (${t.field2})` : (t.unit ? ` (${t.unit})` : '');
     const sisa = (t.total || 0) - (t.bayar || 0);
@@ -683,38 +820,19 @@ window.printPrimaNota = function(id) {
         `;
     });
 
-    const element = document.createElement('div');
-    element.style.padding = '20px';
-    element.style.fontFamily = 'Arial, sans-serif';
-    element.innerHTML = `
-        <div style="border: 1px solid #000; padding: 20px; max-width: 650px; margin: 0 auto; background: white; color: #000;">
-            <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
-                <h2 style="margin: 0; font-size: 15px; font-weight: bold; text-transform: uppercase;">${namaUsaha}</h2>
-                <p style="margin: 2px 0 0 0; font-size: 10px;">${alamatKantor} • Telp/WA: ${kontakKantor}</p>
-                <h3 style="margin: 8px 0 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">PRIMA NOTA TRANSAKSI BERKAS</h3>
-            </div>
+    const docTitle = isTitipBerkas ? "SURAT TANDA TERIMA PENITIPAN DOKUMEN" : "PRIMA NOTA TRANSAKSI BERKAS";
 
-            <div style="display: flex; gap: 8px; margin-bottom: 12px; font-size: 11px;">
-                <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr><td style="width: 85px; font-weight: bold;">No. Order</td><td>: ${t.id ? t.id.substring(0, 8).toUpperCase() : 'SPS-001'}</td></tr>
-                        <tr><td style="font-weight: bold;">Nama Klien</td><td>: <strong>${t.nama}</strong></td></tr>
-                        <tr><td style="font-weight: bold;">Alamat KTP</td><td>: ${t.alamat || '-'}</td></tr>
-                        <tr><td style="font-weight: bold;">No. Telp/HP</td><td>: ${t.wa}</td></tr>
-                    </table>
-                </div>
-                <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr><td style="width: 85px; font-weight: bold;">Layanan</td><td>: <strong>${t.layanan}</strong></td></tr>
-                        <tr><td style="font-weight: bold;">Detail Berkas</td><td>: ${infoDetail}${unitDetail}</td></tr>
-                        <tr><td style="font-weight: bold;">Tgl Masuk</td><td>: ${t.tgl_masuk}</td></tr>
-                        <tr><td style="font-weight: bold;">Status Bayar</td><td>: <strong>${t.status_bayar}</strong></td></tr>
-                    </table>
-                </div>
+    let tableSectionHtml = '';
+    if (isTitipBerkas) {
+        tableSectionHtml = `
+            <div style="border: 1px dashed #000; padding: 12px; border-radius: 6px; background: #fafafa; margin: 15px 0; font-size: 10.5px; line-height: 1.6;">
+                <p style="margin: 0; font-weight: bold;">KETERANGAN PENITIPAN DOKUMEN:</p>
+                <p style="margin: 3px 0 0 0;">Dokumen fisik kendaraan / berkas asli telah diterima lengkap oleh petugas Biro Jasa SPS untuk dilakukan pengecekan tarif pajak, denda, dan biaya di loket Samsat. Total biaya tagihan resmi akan diterbitkan segera setelah proses pengecekan selesai.</p>
             </div>
-
-            <!-- TABEL TAGIHAN UTAMA -->
-            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 12px;">
+        `;
+    } else {
+        tableSectionHtml = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px;">
                 <thead>
                     <tr style="background: #f1f5f9; text-align: center; font-weight: bold;">
                         <th style="padding: 6px; border: 1px solid #000;">Rincian Pengurusan Berkas</th>
@@ -733,7 +851,6 @@ window.printPrimaNota = function(id) {
                 </tbody>
             </table>
 
-            <!-- TABEL RINCIAN TAHAP PEMBAYARAN / CICILAN -->
             <p style="font-size: 10px; font-weight: bold; margin: 8px 0 4px 0;">TABEL TAHAPAN PEMBAYARAN (CICILAN):</p>
             <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; margin-bottom: 15px;">
                 <thead>
@@ -749,15 +866,49 @@ window.printPrimaNota = function(id) {
                     ${rowsRiwayatHtml || '<tr><td colspan="5" style="padding: 6px; text-align: center; border: 1px solid #000;">Belum ada cicilan masuk.</td></tr>'}
                 </tbody>
             </table>
+        `;
+    }
+
+    const element = document.createElement('div');
+    element.style.padding = '20px';
+    element.style.fontFamily = 'Arial, sans-serif';
+    element.innerHTML = `
+        <div style="border: 1px solid #000; padding: 20px; max-width: 650px; margin: 0 auto; background: white; color: #000;">
+            <div style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
+                <h2 style="margin: 0; font-size: 15px; font-weight: bold; text-transform: uppercase;">${namaUsaha}</h2>
+                <p style="margin: 2px 0 0 0; font-size: 10px;">${alamatKantor} • Telp/WA: ${kontakKantor}</p>
+                <h3 style="margin: 8px 0 0 0; font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">${docTitle}</h3>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; font-size: 11px;">
+                <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="width: 85px; font-weight: bold;">No. Order</td><td>: ${t.id ? t.id.substring(0, 8).toUpperCase() : 'SPS-001'}</td></tr>
+                        <tr><td style="font-weight: bold;">Nama Klien</td><td>: <strong>${t.nama}</strong></td></tr>
+                        <tr><td style="font-weight: bold;">Alamat KTP</td><td>: ${t.alamat || '-'}</td></tr>
+                        <tr><td style="font-weight: bold;">No. Telp/HP</td><td>: ${t.wa}</td></tr>
+                    </table>
+                </div>
+                <div style="flex: 1; border: 1px solid #000; padding: 8px; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr><td style="width: 85px; font-weight: bold;">Layanan</td><td>: <strong>${t.layanan}</strong></td></tr>
+                        <tr><td style="font-weight: bold;">Detail Berkas</td><td>: ${infoDetail}${unitDetail}</td></tr>
+                        <tr><td style="font-weight: bold;">Tgl Masuk</td><td>: ${t.tgl_masuk}</td></tr>
+                        <tr><td style="font-weight: bold;">Status Bayar</td><td>: <strong>${t.status_bayar || 'MENUNGGU CEK BIAYA'}</strong></td></tr>
+                    </table>
+                </div>
+            </div>
+
+            ${tableSectionHtml}
 
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px; font-size: 10px;">
                 <div style="text-align: center; width: 180px;">
-                    <p style="margin: 0;">Penerima Berkas / Klien,</p>
+                    <p style="margin: 0;">Penyetor Berkas / Klien,</p>
                     <div style="height: 45px;"></div>
                     <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( ${t.nama} )</p>
                 </div>
                 <div style="text-align: center; width: 200px;">
-                    <p style="margin: 0;">Petugas Biro Jasa SPS,</p>
+                    <p style="margin: 0;">Petugas Penerima SPS,</p>
                     <div style="height: 45px;"></div>
                     <p style="margin: 0; font-weight: bold; border-bottom: 1px solid #000; display: inline-block; padding: 0 10px;">( Ni Nyoman Suryani )</p>
                 </div>
@@ -767,7 +918,7 @@ window.printPrimaNota = function(id) {
 
     const opt = {
         margin:       0.2,
-        filename:     `PrimaNota_${t.nama.replace(/\s+/g, '_')}_${t.tgl_masuk}.pdf`,
+        filename:     `${isTitipBerkas ? 'TandaTerima' : 'PrimaNota'}_${t.nama.replace(/\s+/g, '_')}_${t.tgl_masuk}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
         jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -776,7 +927,7 @@ window.printPrimaNota = function(id) {
     html2pdf().set(opt).from(element).save();
 };
 
-// 🧾 FUNGSI CETAK KWITANSI RESMI PER-CICILAN
+// 🧾 CETAK KWITANSI RESMI PER-CICILAN
 window.printKwitansi = function(trxId, paymentIndex) {
     const t = listTransaksi.find(item => item.id === trxId);
     if (!t) return;

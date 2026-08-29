@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice Digital - BIRO JASA SPS</title>
+    <title>Dokumen Digital - BIRO JASA SPS</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icon -->
@@ -15,10 +15,10 @@
 
     <div id="loading" class="text-center py-12">
         <i class="fa-solid fa-spinner fa-spin text-3xl text-orange-600"></i>
-        <p class="text-xs text-gray-500 mt-2">Memuat Invoice & Kwitansi...</p>
+        <p class="text-xs text-gray-500 mt-2">Memuat Dokumen...</p>
     </div>
 
-    <!-- Card Invoice Digital Klien -->
+    <!-- Card Dokumen Digital Klien -->
     <div id="invoice-card" class="bg-white max-w-lg w-full p-6 md:p-8 rounded-3xl shadow-xl border border-gray-100 hidden">
         <div class="flex justify-between items-start border-b pb-4">
             <div>
@@ -26,7 +26,7 @@
                 <p class="text-xs text-gray-400">Sedana Permata Sari</p>
             </div>
             <div class="text-right">
-                <span id="inv-status-bayar" class="text-xs px-3 py-1 rounded-full font-bold uppercase bg-slate-100 text-gray-600">-</span>
+                <span id="inv-status-bayar" class="text-xs px-3 py-1 rounded-full font-bold uppercase bg-purple-100 text-purple-800">-</span>
                 <p id="inv-tgl" class="text-[10px] text-gray-400 mt-2">Tanggal: -</p>
             </div>
         </div>
@@ -37,37 +37,44 @@
             <p class="font-semibold">Layanan: <span id="inv-layanan" class="font-normal text-gray-600">-</span></p>
         </div>
 
-        <table class="w-full text-sm my-4 border-t border-b py-3">
-            <thead>
-                <tr class="text-left text-gray-400 uppercase text-[10px] tracking-wider border-b">
-                    <th class="py-2">RINCIAN LAYANAN</th>
-                    <th class="py-2 text-right">NOMINAL</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td id="inv-item-name" class="py-2.5 text-gray-700">Layanan</td>
-                    <td id="inv-total-1" class="py-2.5 text-right font-medium text-gray-800">Rp 0</td>
-                </tr>
-                <tr class="border-t">
-                    <td class="py-2.5 font-bold text-gray-800">Total Tagihan</td>
-                    <td id="inv-total-2" class="py-2.5 text-right font-bold text-orange-600">Rp 0</td>
-                </tr>
-                <tr>
-                    <td class="py-2 text-gray-500">Total Sudah Dibayar</td>
-                    <td id="inv-bayar" class="py-2 text-right text-emerald-600 font-semibold">Rp 0</td>
-                </tr>
-                <tr class="border-t">
-                    <td class="py-2.5 font-bold text-gray-800">Sisa Tagihan (Piutang)</td>
-                    <td id="inv-sisa" class="py-2.5 text-right font-bold text-rose-600">Rp 0</td>
-                </tr>
-            </tbody>
-        </table>
+        <!-- AREA TAGIHAN / AREA TITIP BERKAS -->
+        <div id="area-tagihan-normal">
+            <table class="w-full text-sm my-4 border-t border-b py-3">
+                <thead>
+                    <tr class="text-left text-gray-400 uppercase text-[10px] tracking-wider border-b">
+                        <th class="py-2">RINCIAN LAYANAN</th>
+                        <th class="py-2 text-right">NOMINAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="inv-item-name" class="py-2.5 text-gray-700">Layanan</td>
+                        <td id="inv-total-1" class="py-2.5 text-right font-medium text-gray-800">Rp 0</td>
+                    </tr>
+                    <tr class="border-t">
+                        <td class="py-2.5 font-bold text-gray-800">Total Tagihan</td>
+                        <td id="inv-total-2" class="py-2.5 text-right font-bold text-orange-600">Rp 0</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 text-gray-500">Total Sudah Dibayar</td>
+                        <td id="inv-bayar" class="py-2 text-right text-emerald-600 font-semibold">Rp 0</td>
+                    </tr>
+                    <tr class="border-t">
+                        <td class="py-2.5 font-bold text-gray-800">Sisa Tagihan (Piutang)</td>
+                        <td id="inv-sisa" class="py-2.5 text-right font-bold text-rose-600">Rp 0</td>
+                    </tr>
+                </tbody>
+            </table>
 
-        <!-- TABEL RINCIAN TAHAPAN PEMBAYARAN KLIEN -->
-        <div class="my-4 border rounded-2xl p-3 bg-slate-50">
-            <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Riwayat Pembayaran:</h4>
-            <div id="inv-riwayat-list" class="space-y-1.5 text-xs text-gray-600"></div>
+            <div class="my-4 border rounded-2xl p-3 bg-slate-50">
+                <h4 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Riwayat Pembayaran:</h4>
+                <div id="inv-riwayat-list" class="space-y-1.5 text-xs text-gray-600"></div>
+            </div>
+        </div>
+
+        <div id="area-titip-berkas" class="hidden my-4 border border-dashed border-purple-300 rounded-2xl p-4 bg-purple-50/50 text-purple-950 text-xs leading-relaxed">
+            <h4 class="font-bold text-purple-900 mb-1 flex items-center gap-1.5"><i class="fa-solid fa-file-shield text-purple-600"></i>SURAT TANDA TERIMA TITIP BERKAS</h4>
+            <p>Dokumen fisik pengurusan berkas Anda telah kami terima dengan aman di kantor Biro Jasa SPS. Biaya resmi sedang dalam tahap pengecekan di loket Samsat. Total tagihan akan otomatis diinfokan segera setelah pengecekan selesai.</p>
         </div>
 
         <div class="text-[11px] text-gray-500 leading-relaxed border-t pt-4 space-y-1">
@@ -78,7 +85,7 @@
 
         <div class="mt-6 pt-4 border-t flex gap-2 justify-center">
             <button onclick="downloadPdf()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-2xl shadow-md text-sm transition flex items-center justify-center gap-2">
-                <i class="fa-solid fa-download"></i>Download PDF Resmi
+                <i class="fa-solid fa-download"></i><span id="btn-download-text">Download PDF Resmi</span>
             </button>
         </div>
     </div>
@@ -106,7 +113,7 @@
             const docId = urlParams.get('id');
 
             if (!docId) {
-                document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Link Invoice Tidak Valid!</p>';
+                document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Link Dokumen Tidak Valid!</p>';
                 return;
             }
 
@@ -116,7 +123,7 @@
                     currentTrxData = { id: doc.id, ...doc.data() };
                     renderInvoice(currentTrxData);
                 } else {
-                    document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Invoice Tidak Ditemukan!</p>';
+                    document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Dokumen Tidak Ditemukan!</p>';
                 }
             } catch (e) {
                 document.getElementById('loading').innerHTML = '<p class="text-rose-600 text-sm font-bold">Error Memuat Data!</p>';
@@ -124,40 +131,50 @@
         });
 
         function renderInvoice(t) {
+            const isTitipBerkas = (t.total === 0 || t.status_bayar === 'MENUNGGU CEK BIAYA');
             const info1 = t.field1 || t.plat || '-';
             const info2 = t.field2 ? ` (${t.field2})` : '';
             const sisa = (t.total || 0) - (t.bayar || 0);
 
-            document.getElementById('inv-status-bayar').innerText = t.status_bayar || 'BELUM BAYAR';
+            document.getElementById('inv-status-bayar').innerText = t.status_bayar || (isTitipBerkas ? 'MENUNGGU CEK BIAYA' : 'BELUM BAYAR');
             document.getElementById('inv-tgl').innerText = `Tanggal: ${t.tgl_masuk || '-'}`;
             document.getElementById('inv-nama').innerText = t.nama || '-';
             document.getElementById('inv-alamat').innerText = t.alamat || '-';
             document.getElementById('inv-layanan').innerText = `${t.layanan} • ${info1}${info2}`;
             
-            document.getElementById('inv-item-name').innerText = `Biaya ${t.layanan}`;
-            document.getElementById('inv-total-1').innerText = `Rp ${(t.total||0).toLocaleString('id-ID')}`;
-            document.getElementById('inv-total-2').innerText = `Rp ${(t.total||0).toLocaleString('id-ID')}`;
-            document.getElementById('inv-bayar').innerText = `Rp ${(t.bayar||0).toLocaleString('id-ID')}`;
-            document.getElementById('inv-sisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
+            if (isTitipBerkas) {
+                document.getElementById('area-tagihan-normal').classList.add('hidden');
+                document.getElementById('area-titip-berkas').classList.remove('hidden');
+                document.getElementById('btn-download-text').innerText = 'Download Surat Tanda Terima (PDF)';
+            } else {
+                document.getElementById('area-tagihan-normal').classList.remove('hidden');
+                document.getElementById('area-titip-berkas').classList.add('hidden');
+                document.getElementById('btn-download-text').innerText = 'Download Invoice Tagihan (PDF)';
 
-            // Render Riwayat Cicilan
-            const riwayat = Array.isArray(t.riwayat_pembayaran) ? t.riwayat_pembayaran : (t.bayar > 0 ? [{
-                tgl: t.tgl_masuk,
-                nominal: t.bayar,
-                keterangan: 'Pembayaran DP / Awal',
-                metode: 'Tunai / Transfer'
-            }] : []);
+                document.getElementById('inv-item-name').innerText = `Biaya ${t.layanan}`;
+                document.getElementById('inv-total-1').innerText = `Rp ${(t.total||0).toLocaleString('id-ID')}`;
+                document.getElementById('inv-total-2').innerText = `Rp ${(t.total||0).toLocaleString('id-ID')}`;
+                document.getElementById('inv-bayar').innerText = `Rp ${(t.bayar||0).toLocaleString('id-ID')}`;
+                document.getElementById('inv-sisa').innerText = `Rp ${sisa.toLocaleString('id-ID')}`;
 
-            let riwayatHtml = '';
-            riwayat.forEach((p, idx) => {
-                riwayatHtml += `
-                    <div class="flex justify-between py-1 border-b last:border-b-0">
-                        <span>#${idx+1} ${p.keterangan || 'Pembayaran'} (${p.tgl}) [${p.metode||'Kas'}]</span>
-                        <strong class="text-emerald-600">+ Rp ${(p.nominal||0).toLocaleString('id-ID')}</strong>
-                    </div>
-                `;
-            });
-            document.getElementById('inv-riwayat-list').innerHTML = riwayatHtml || '<p class="italic text-gray-400">Belum ada cicilan masuk.</p>';
+                const riwayat = Array.isArray(t.riwayat_pembayaran) ? t.riwayat_pembayaran : (t.bayar > 0 ? [{
+                    tgl: t.tgl_masuk,
+                    nominal: t.bayar,
+                    keterangan: 'Pembayaran DP / Awal',
+                    metode: 'Tunai / Transfer'
+                }] : []);
+
+                let riwayatHtml = '';
+                riwayat.forEach((p, idx) => {
+                    riwayatHtml += `
+                        <div class="flex justify-between py-1 border-b last:border-b-0">
+                            <span>#${idx+1} ${p.keterangan || 'Pembayaran'} (${p.tgl}) [${p.metode||'Kas'}]</span>
+                            <strong class="text-emerald-600">+ Rp ${(p.nominal||0).toLocaleString('id-ID')}</strong>
+                        </div>
+                    `;
+                });
+                document.getElementById('inv-riwayat-list').innerHTML = riwayatHtml || '<p class="italic text-gray-400">Belum ada cicilan masuk.</p>';
+            }
 
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('invoice-card').classList.remove('hidden');
@@ -165,10 +182,11 @@
 
         function downloadPdf() {
             if (!currentTrxData) return;
+            const isTitip = (currentTrxData.total === 0 || currentTrxData.status_bayar === 'MENUNGGU CEK BIAYA');
             const element = document.getElementById('invoice-card');
             const opt = {
                 margin:       0.2,
-                filename:     `Invoice_${currentTrxData.nama.replace(/\s+/g, '_')}.pdf`,
+                filename:     `${isTitip ? 'TandaTerima' : 'Invoice'}_${currentTrxData.nama.replace(/\s+/g, '_')}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2 },
                 jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
