@@ -86,36 +86,116 @@
 
             <main class="flex-1 p-4 md:p-6 lg:p-8">
                 
-                <!-- ================= HALAMAN: DASHBOARD ================= -->
+                <!-- ================= HALAMAN: DASHBOARD (DENGAN FILTER PERIODE) ================= -->
                 <section id="page-dashboard" class="page-section">
-                    <h1 class="text-2xl font-bold text-gray-900 mb-2">Dashboard Utama</h1>
-                    <p class="text-gray-500 text-sm mb-6">Ringkasan aktivitas operasional Biro Jasa SPS.</p>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-900">Dashboard Utama</h1>
+                            <p class="text-gray-500 text-xs">Ringkasan operasional dan komparasi performa Biro Jasa SPS.</p>
+                        </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                            <div><p class="text-xs text-gray-400 font-semibold uppercase">Total Order</p><h3 id="stat-total-trx" class="text-2xl font-bold text-gray-800 mt-1">0</h3></div>
-                            <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 text-xl"><i class="fa-solid fa-folder-open"></i></div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                            <div><p class="text-xs text-gray-400 font-semibold uppercase">Proses Berkas</p><h3 id="stat-proses-trx" class="text-2xl font-bold text-blue-600 mt-1">0</h3></div>
-                            <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl"><i class="fa-solid fa-spinner"></i></div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                            <div><p class="text-xs text-gray-400 font-semibold uppercase">Selesai</p><h3 id="stat-selesai-trx" class="text-2xl font-bold text-emerald-600 mt-1">0</h3></div>
-                            <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl"><i class="fa-solid fa-circle-check"></i></div>
-                        </div>
-                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-                            <div><p class="text-xs text-gray-400 font-semibold uppercase">Belum Lunas (Piutang)</p><h3 id="stat-piutang-trx" class="text-2xl font-bold text-rose-600 mt-1">Rp 0</h3></div>
-                            <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 text-xl"><i class="fa-solid fa-wallet"></i></div>
+                        <!-- FILTER PERIODE DASHBOARD -->
+                        <div class="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm">
+                            <i class="fa-solid fa-calendar-days text-orange-600 text-xs ml-2"></i>
+                            <select id="dash-filter-preset" class="px-2.5 py-1.5 bg-slate-50 border rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-orange-500 cursor-pointer">
+                                <option value="THIS_MONTH" selected>Bulan Ini</option>
+                                <option value="LAST_MONTH">Bulan Lalu</option>
+                                <option value="ALL">Semua Waktu (All-Time)</option>
+                                <option value="CUSTOM">Kustom Tanggal</option>
+                            </select>
+
+                            <!-- Custom Date Range (Tersembunyi jika bukan mode custom) -->
+                            <div id="dash-custom-date-box" class="hidden flex items-center gap-1.5">
+                                <input type="date" id="dash-date-start" class="px-2 py-1 border rounded-lg text-xs text-gray-600">
+                                <span class="text-[10px] text-gray-400">s/d</span>
+                                <input type="date" id="dash-date-end" class="px-2 py-1 border rounded-lg text-xs text-gray-600">
+                                <button id="dash-btn-apply" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-semibold">Terapkan</button>
+                            </div>
                         </div>
                     </div>
 
+                    <!-- KARTU STATISTIK DUAL-KOMPARASI -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                        
+                        <!-- 1. Total Order -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p id="dash-label-order" class="text-xs text-gray-400 font-semibold uppercase">Total Order (Bulan Ini)</p>
+                                    <h3 id="stat-total-trx" class="text-2xl font-black text-gray-800 mt-1">0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 text-xl">
+                                    <i class="fa-solid fa-folder-open"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2.5 border-t border-slate-100 flex justify-between text-[11px] text-gray-400">
+                                <span>Bulan Ini: <strong id="dash-sub-order-now" class="text-gray-700">0</strong></span>
+                                <span>Bulan Lalu: <strong id="dash-sub-order-last" class="text-gray-700">0</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- 2. Proses Berkas -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs text-gray-400 font-semibold uppercase">Proses Berkas</p>
+                                    <h3 id="stat-proses-trx" class="text-2xl font-black text-blue-600 mt-1">0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl">
+                                    <i class="fa-solid fa-spinner"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-blue-600 font-medium">
+                                <span><i class="fa-solid fa-clock-rotate-left mr-1"></i>Sedang dikerjakan tim</span>
+                            </div>
+                        </div>
+
+                        <!-- 3. Berkas Selesai -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p id="dash-label-selesai" class="text-xs text-gray-400 font-semibold uppercase">Selesai (Bulan Ini)</p>
+                                    <h3 id="stat-selesai-trx" class="text-2xl font-black text-emerald-600 mt-1">0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2.5 border-t border-slate-100 flex justify-between text-[11px] text-gray-400">
+                                <span>Bulan Ini: <strong id="dash-sub-selesai-now" class="text-emerald-700">0</strong></span>
+                                <span>Bulan Lalu: <strong id="dash-sub-selesai-last" class="text-gray-700">0</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- 4. Piutang (Belum Lunas) -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p id="dash-label-piutang" class="text-xs text-gray-400 font-semibold uppercase">Piutang (Bulan Ini)</p>
+                                    <h3 id="stat-piutang-trx" class="text-2xl font-black text-rose-600 mt-1">Rp 0</h3>
+                                </div>
+                                <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 text-xl">
+                                    <i class="fa-solid fa-wallet"></i>
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2.5 border-t border-slate-100 text-[10.5px] text-gray-400 flex justify-between">
+                                <span>Total Akumulasi:</span>
+                                <strong id="dash-sub-piutang-all" class="text-rose-700 font-bold">Rp 0</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WARNING JATUH TEMPO TERDEKAT -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div class="flex items-center justify-between mb-4">
-                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-bell text-orange-500 mr-2"></i>Pengingat Jatuh Tempo Berkas</h2>
-                            <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-medium">Perlu Dihubungi</span>
+                            <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <i class="fa-solid fa-bell text-orange-500"></i>Pengingat Jatuh Tempo Terdekat
+                            </h2>
+                            <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-bold">Urut Terdekat</span>
                         </div>
-                        <div id="list-reminder" class="space-y-3"><p class="text-sm text-gray-400 italic">Memuat data pengingat...</p></div>
+                        <div id="list-reminder" class="space-y-3">
+                            <p class="text-sm text-gray-400 italic text-center py-4">Memuat data pengingat...</p>
+                        </div>
                     </div>
                 </section>
 
