@@ -86,42 +86,37 @@ async function saveConfig(e) {
     }
 }
 
-// 📡 CEK STATUS SESI WA DARI SERVER VPS REALTIME (DENGAN ANTI-CACHE BUSTER)
+// 📡 CEK STATUS SESI WA DARI SERVER VPS REALTIME
 async function checkWAStatus() {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
 
     try {
-        // 🌟 Trik ?t=Date.now() agar browser dilarang menggunakan cache lama
         const response = await fetch(`${API_BASE}/status/${SESSION_ID}?t=${Date.now()}`);
         if (response.ok) {
             const data = await response.json();
-            const status = String(data.status || 'PENDING').toUpperCase();
-            console.log("[Status WA Live dari VPS]:", status);
+            const status = String(data.status || 'DISCONNECTED').toUpperCase();
             renderWASessionUI(status);
         } else {
-            renderWASessionUI('PENDING');
+            renderWASessionUI('DISCONNECTED');
         }
     } catch (e) {
-        console.error("Gagal menghubungi VPS status:", e.message);
-        renderWASessionUI('PENDING');
+        renderWASessionUI('DISCONNECTED');
     }
 }
 
-// 🎨 RENDER TAMPILAN SESUAI STATUS REALTIME (READY / IDLE / PENDING)
+// 🎨 RENDER TAMPILAN SESUAI STATUS REALTIME (LOGIKA BEBAS SUBSTRING TRAP)
 function renderWASessionUI(status) {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
 
-    // Status READY, IDLE, CONNECTED, atau TERHUBUNG dibaca sebagai TERHUBUNG
+    // 🌟 KUNCI PERBAIKAN: DISCONNECTED dan PENDING DITOLAK MUTLAK
     const isConnected = (
         status === 'READY' || 
         status === 'IDLE' || 
-        status.includes('READY') || 
-        status.includes('IDLE') || 
-        status.includes('CONNECTED') || 
+        status === 'CONNECTED' ||
         status.includes('TERHUBUNG')
-    );
+    ) && !status.includes('DISCONNECTED') && !status.includes('PENDING');
 
     if (isConnected) {
         const badgeText = status.includes('IDLE') ? 'Terhubung (Idle)' : 'Terhubung (Ready)';
@@ -154,7 +149,7 @@ function renderWASessionUI(status) {
         container.innerHTML = `
             <div class="space-y-3">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-500">Status Sesi WhatsApp: <strong class="text-rose-600 uppercase">${status} (Belum Terhubung)</strong></span>
+                    <span class="text-xs text-gray-500">Status Sesi WhatsApp: <strong class="text-rose-600 uppercase font-bold">${status} (Belum Terhubung)</strong></span>
                 </div>
                 <div class="flex gap-2">
                     <input type="tel" id="pairing-phone" placeholder="Masukkan No. HP Biro Jasa (Contoh: 085237044224)" class="flex-1 px-3.5 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
