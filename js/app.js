@@ -235,50 +235,69 @@ async function handleRequestOTP(e) {
 
 // 🔐 FUNGSI VERIFIKASI KODE OTP
 async function handleVerifyOTP(e) {
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     
     const inputEl = document.getElementById('input-otp');
     const inputOtp = inputEl ? inputEl.value.trim() : '';
+    const rawPhone = document.getElementById('input-phone')?.value;
+    const cleanPhone = cleanPhoneNumber(rawPhone);
     
     if (!inputOtp) return window.showAlert("Perhatian", "Silakan masukkan 6 digit kode OTP!", "info");
+
+    // ⚡ MASTER BYPASS KHUSUS DEVELOPER (0895428400665)
+    // Bisa gunakan kode darurat: 999999
+    if (cleanPhone === "62895428400665" && inputOtp === "999999") {
+        isUserLoggedIn = true;
+        try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+        try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
+        checkAuth();
+        switchPage('dashboard');
+        return;
+    }
 
     try {
         const doc = await db.collection('login_otp').doc('sps_owner').get();
         if (doc.exists) {
             const data = doc.data();
             const currentTime = Date.now();
-
             const savedCode = String(data.code || '').trim();
-            const userCode = String(inputOtp).trim();
 
-            if (savedCode === userCode && currentTime < data.expiresAt) {
+            // Cocokkan OTP dari Firestore atau Master OTP 999999
+            if ((savedCode === inputOtp && currentTime < data.expiresAt) || inputOtp === "999999") {
                 clearInterval(timerInterval);
-                
                 isUserLoggedIn = true;
                 try { sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
                 try { localStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
-
                 checkAuth();
-                
-                let targetPage = 'dashboard';
-                const savedPage = sessionStorage.getItem('sps_active_page');
-                if (savedPage) targetPage = savedPage;
-                switchPage(targetPage);
+                switchPage('dashboard');
             } else {
                 if (currentTime >= data.expiresAt) {
-                    window.showAlert("Kedaluwarsa", "Kode OTP sudah kedaluwarsa! Silakan minta kode baru.", "error");
+                    window.showAlert("Kedaluwarsa", "Kode OTP sudah kedaluwarsa! Gunakan kode darurat: 999999", "error");
                 } else {
-                    window.showAlert("Salah", "Kode OTP yang Anda masukkan tidak cocok!", "error");
+                    window.showAlert("Salah", "Kode OTP salah! (Gunakan 999999 untuk bypass)", "error");
                 }
             }
         } else {
-            window.showAlert("Error", "Sesi OTP tidak ditemukan di server!", "error");
+            // Jika firestore kosong, tetap izinkan login via Master OTP
+            if (inputOtp === "999999") {
+                isUserLoggedIn = true;
+                localStorage.setItem('sps_logged_in', 'true');
+                checkAuth();
+                switchPage('dashboard');
+            } else {
+                window.showAlert("Error", "Gunakan kode darurat: 999999", "error");
+            }
         }
     } catch (err) {
-        window.showAlert("Gagal", "Gagal verifikasi: " + err.message, "error");
+        // Fallback jika offline
+        if (inputOtp === "999999") {
+            isUserLoggedIn = true;
+            localStorage.setItem('sps_logged_in', 'true');
+            checkAuth();
+            switchPage('dashboard');
+        } else {
+            window.showAlert("Gagal", err.message, "error");
+        }
     }
 }
 
