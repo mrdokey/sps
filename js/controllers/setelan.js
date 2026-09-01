@@ -28,10 +28,9 @@ export function initSetelanController() {
     appendResetDatabaseSection();
 
     // 🔄 Cek Status WA Gateway Langsung & Setiap 3 Detik
-    checkWAStatus();
-    if (!statusCheckInterval) {
-        statusCheckInterval = setInterval(checkWAStatus, 3000);
-    }
+    // Jalankan cek 1x saat buka menu setelan, lalu pasang mode santai (20 detik)
+checkWAStatus();
+startSmartWAPolling('slow');
 
     // Stream Data Realtime Konfigurasi Profil
     db.collection('konfigurasi').doc('profile').onSnapshot(doc => {
@@ -86,39 +85,65 @@ async function saveConfig(e) {
     }
 }
 
-// 📡 CEK STATUS SESI WA (NO-CACHE FETCH)
-let lastWAState = ''; // Simpan state terakhir agar tidak re-render terus-menerus
+let statusCheckInterval = null;
+let activePollingTimeout = null;
+let lastWAState = '';
 
+// 🧠 SMART POLLING: Lambat saat idle (20s), Cepat hanya saat aktif pairing (3s selama max 60s)
+export function startSmartWAPolling(mode = 'slow') {
+    stopWAPolling();
+    
+    const intervalTime = mode === 'fast' ? 3000 : 20000;
+    statusCheckInterval = setInterval(checkWAStatus, intervalTime);
+
+    // Jika mode cepat (sedang tunggu scan/pairing), matikan otomatis setelah 60 detik
+    if (mode === 'fast') {
+        if (activePollingTimeout) clearTimeout(activePollingTimeout);
+        activePollingTimeout = setTimeout(() => {
+            stopWAPolling();
+            startSmartWAPolling('slow'); // Kembalikan ke mode hemat
+            const qrBox = document.getElementById('qr-display-box');
+            if (qrBox && lastWAState !== 'CONNECTED') {
+                qrBox.innerHTML = `<p class="text-[11px] text-amber-600 font-medium p-2">⏱️ Waktu scan habis untuk menghemat server. Klik tombol di bawah untuk muat ulang.</p>`;
+            }
+        }, 60000); // 60 detik timeout
+    }
+}
+
+export function stopWAPolling() {
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        statusCheckInterval = null;
+    }
+}
+
+// 📡 CEK STATUS SESI
 async function checkWAStatus() {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
 
     try {
         const response = await fetch(`${API_BASE}/status/${SESSION_ID}?_t=${Date.now()}`, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+            cache: 'no-store'
         });
         if (response.ok) {
             const data = await response.json();
             const rawStatus = String(data.status || 'DISCONNECTED').toUpperCase().trim();
-            const currentStateKey = `${rawStatus}_${data.qr || ''}`;
+            const currentStateKey = `${rawStatus}_${data.qr ? 'QR_READY' : 'NO_QR'}`;
 
-            // HANYA RENDER JIKA ADA PERUBAHAN STATUS / QR BARU
             if (lastWAState !== currentStateKey) {
                 lastWAState = currentStateKey;
                 renderWASessionUI(rawStatus, data.qr || null);
             }
-        } else {
-            if (lastWAState !== 'DISCONNECTED') {
-                lastWAState = 'DISCONNECTED';
-                renderWASessionUI('DISCONNECTED', null);
+
+            // Jika sudah terhubung, langsung matikan mode cepat -> ubah ke mode santai
+            if (rawStatus === 'CONNECTED' || rawStatus === 'READY' || rawStatus === 'IDLE') {
+                if (activePollingTimeout) clearTimeout(activePollingTimeout);
+                startSmartWAPolling('slow');
             }
         }
     } catch (e) {
-        if (lastWAState !== 'DISCONNECTED') {
-            lastWAState = 'DISCONNECTED';
-            renderWASessionUI('DISCONNECTED', null);
-        }
+        // Abaikan error jaringan agar tidak spam console
     }
 }
 
