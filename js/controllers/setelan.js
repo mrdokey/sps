@@ -5,9 +5,11 @@ let formConfig;
 const API_BASE = "https://wa.mrdsolution.my.id/api";
 const SESSION_ID = "sps";
 let statusCheckInterval = null;
+let activePollingTimeout = null;
+let lastWAState = '';
 let listLayanan = [];
 
-// DATA DEFAULT OTOMATIS BERDASARKAN FOTO KARTU NAMA & DESK SIGN
+// DATA DEFAULT PROFIL & KOP SURAT
 export let configGlobal = {
     nama: "BIRO JASA SPS (SEDANA PERMATA SARI)",
     alamat: "Jl. Utama Biro Jasa SPS, Denpasar - Bali",
@@ -21,18 +23,19 @@ export function initSetelanController() {
     formConfig = document.getElementById('form-config');
     formConfig?.addEventListener('submit', saveConfig);
 
-    // Injeksi Seluruh Seksi Setelan
-    appendLayananSection();
-    appendOperatorSection();
-    appendPairingSection();
-    appendResetDatabaseSection();
+    // 🛡️ PROTEKSI: Pasang komponen hanya jika belum ada di DOM
+    if (!document.getElementById('wa-session-status-container')) {
+        appendLayananSection();
+        appendOperatorSection();
+        appendPairingSection();
+        appendResetDatabaseSection();
+    }
 
-    // 🔄 Cek Status WA Gateway Langsung & Setiap 3 Detik
-    // Jalankan cek 1x saat buka menu setelan, lalu pasang mode santai (20 detik)
-checkWAStatus();
-startSmartWAPolling('slow');
+    // Cek status pertama kali & mulai mode hemat (25 detik)
+    checkWAStatus();
+    startSmartWAPolling('slow');
 
-    // Stream Data Realtime Konfigurasi Profil
+    // Stream Data Profil Realtime
     db.collection('konfigurasi').doc('profile').onSnapshot(doc => {
         if (doc.exists) {
             const data = doc.data();
@@ -41,7 +44,7 @@ startSmartWAPolling('slow');
         populateForm();
     });
 
-    // Stream Data Realtime Katalog Layanan / Jasa
+    // Stream Katalog Layanan Realtime
     db.collection('layanan').onSnapshot(snapshot => {
         listLayanan = [];
         snapshot.forEach(doc => {
@@ -85,28 +88,23 @@ async function saveConfig(e) {
     }
 }
 
-let statusCheckInterval = null;
-let activePollingTimeout = null;
-let lastWAState = '';
-
-// 🧠 SMART POLLING: Lambat saat idle (20s), Cepat hanya saat aktif pairing (3s selama max 60s)
+// 🧠 SMART POLLING: Lambat saat idle (25s), Cepat hanya saat pairing aktif (3s selama max 60s)
 export function startSmartWAPolling(mode = 'slow') {
     stopWAPolling();
     
-    const intervalTime = mode === 'fast' ? 3000 : 20000;
+    const intervalTime = mode === 'fast' ? 3000 : 25000;
     statusCheckInterval = setInterval(checkWAStatus, intervalTime);
 
-    // Jika mode cepat (sedang tunggu scan/pairing), matikan otomatis setelah 60 detik
     if (mode === 'fast') {
         if (activePollingTimeout) clearTimeout(activePollingTimeout);
         activePollingTimeout = setTimeout(() => {
             stopWAPolling();
-            startSmartWAPolling('slow'); // Kembalikan ke mode hemat
+            startSmartWAPolling('slow');
             const qrBox = document.getElementById('qr-display-box');
-            if (qrBox && lastWAState !== 'CONNECTED') {
-                qrBox.innerHTML = `<p class="text-[11px] text-amber-600 font-medium p-2">⏱️ Waktu scan habis untuk menghemat server. Klik tombol di bawah untuk muat ulang.</p>`;
+            if (qrBox && !lastWAState.startsWith('CONNECTED')) {
+                qrBox.innerHTML = `<p class="text-[11px] text-amber-600 font-medium p-2">⏱️ Waktu scan selesai untuk menghemat server. Klik tombol di bawah jika ingin muat QR baru.</p>`;
             }
-        }, 60000); // 60 detik timeout
+        }, 60000);
     }
 }
 
@@ -117,158 +115,46 @@ export function stopWAPolling() {
     }
 }
 
-// 📡 CEK STATUS SESI
+// 📡 CEK STATUS SESI WA TANPA ME-RELOAD DOM (ANTI-KEDIP)
 async function checkWAStatus() {
-    const container = document.getElementById('wa-session-status-container');
-    if (!container) return;
+    const badgeEl = document.getElementById('wa-status-badge');
+    const qrDisplay = document.getElementById('qr-display-box');
+    const btnDisconnect = document.getElementById('btn-disconnect-wa');
+    if (!badgeEl) return;
 
     try {
         const response = await fetch(`${API_BASE}/status/${SESSION_ID}?_t=${Date.now()}`, {
             cache: 'no-store'
         });
+        
         if (response.ok) {
             const data = await response.json();
             const rawStatus = String(data.status || 'DISCONNECTED').toUpperCase().trim();
-            const currentStateKey = `${rawStatus}_${data.qr ? 'QR_READY' : 'NO_QR'}`;
+            const isConnected = (rawStatus === 'READY' || rawStatus === 'CONNECTED' || rawStatus === 'IDLE');
 
-            if (lastWAState !== currentStateKey) {
-                lastWAState = currentStateKey;
-                renderWASessionUI(rawStatus, data.qr || null);
-            }
-
-            // Jika sudah terhubung, langsung matikan mode cepat -> ubah ke mode santai
-            if (rawStatus === 'CONNECTED' || rawStatus === 'READY' || rawStatus === 'IDLE') {
+            if (isConnected) {
+                lastWAState = 'CONNECTED';
+                badgeEl.className = "text-xs font-extrabold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 uppercase";
+                badgeEl.innerText = `🟢 TERHUBUNG (${rawStatus})`;
+                if (btnDisconnect) btnDisconnect.classList.remove('hidden');
+                if (qrDisplay) qrDisplay.innerHTML = `<p class="text-xs text-emerald-600 font-bold">✅ Sesi WhatsApp Sudah Terhubung</p>`;
+                
                 if (activePollingTimeout) clearTimeout(activePollingTimeout);
                 startSmartWAPolling('slow');
+            } else {
+                lastWAState = 'DISCONNECTED';
+                badgeEl.className = "text-xs font-extrabold px-3 py-1 rounded-full bg-rose-100 text-rose-700 uppercase";
+                badgeEl.innerText = "🔴 DISCONNECTED (TERPUTUS)";
+                if (btnDisconnect) btnDisconnect.classList.add('hidden');
+
+                if (data.qr && qrDisplay && !qrDisplay.querySelector('img')) {
+                    qrDisplay.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.qr)}" alt="QR WA" class="rounded-lg shadow-sm">`;
+                }
             }
         }
     } catch (e) {
-        // Abaikan error jaringan agar tidak spam console
+        // Abaikan error koneksi sementara
     }
-}
-
-// 🎨 RENDER TAMPILAN SESUAI 4 STATUS: READY, IDLE, PENDING, DISCONNECTED
-function renderWASessionUI(status, qrData) {
-    const container = document.getElementById('wa-session-status-container');
-    if (!container) return;
-
-    // KONDISI 1: READY / CONNECTED / IDLE (SUDAH TERHUBUNG)
-    if (status === 'READY' || status === 'CONNECTED' || status === 'IDLE') {
-        const isIdle = status === 'IDLE';
-        const badgeColor = isIdle ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white';
-        const badgeLabel = isIdle ? 'TERHUBUNG (IDLE)' : 'TERHUBUNG (READY)';
-        const descText = isIdle 
-            ? "Sesi 'sps' terhubung dalam mode hemat memori (Idle). Sesi akan otomatis bangun saat mengirim notifikasi WA." 
-            : "Sesi 'sps' aktif & siap mengirimkan WhatsApp otomatis secara instan.";
-
-        container.innerHTML = `
-            <div class="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div class="flex items-center gap-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-2xl shadow-sm">
-                        <i class="fa-brands fa-whatsapp"></i>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-bold text-gray-900 text-base">Sesi WhatsApp Biro Jasa SPS</span>
-                            <span class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${badgeColor}">${badgeLabel}</span>
-                        </div>
-                        <p class="text-xs text-emerald-800 font-medium mt-1">${descText}</p>
-                    </div>
-                </div>
-                <button id="btn-disconnect-wa" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-600 px-4 py-2.5 rounded-xl text-xs font-bold border border-rose-200 transition shadow-sm whitespace-nowrap cursor-pointer">
-                    <i class="fa-solid fa-power-off mr-1.5"></i>Putuskan Sesi
-                </button>
-            </div>
-        `;
-        document.getElementById('btn-disconnect-wa')?.addEventListener('click', disconnectWASession);
-        return;
-    }
-
-    // KONDISI 2: BELUM TERHUBUNG (PENDING / DISCONNECTED)
-    const isPending = status === 'PENDING' || status === 'CONNECTING' || status === 'PAIRING';
-    const statusBadge = isPending 
-        ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase">PENDING / MENUNGGU SCAN</span>'
-        : '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 uppercase">DISCONNECTED (TERPUTUS)</span>';
-
-    container.innerHTML = `
-        <div class="space-y-4">
-            <div class="flex items-center justify-between border-b pb-2">
-                <span class="text-xs text-gray-500">Status Gateway:</span>
-                ${statusBadge}
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- SCAN QR BARCODE -->
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-center flex flex-col justify-between">
-                    <div>
-                        <h4 class="font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-qrcode text-orange-600"></i>Scan QR Barcode
-                        </h4>
-                        <p class="text-[10px] text-gray-400 mt-0.5">Buka WA HP > Perangkat Tertaut > Tautkan Perangkat</p>
-                    </div>
-                    
-                    <div id="qr-display-box" class="my-1 flex items-center justify-center min-h-[160px] bg-white rounded-xl border p-2">
-                        ${qrData ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}&_t=${Date.now()}" alt="QR Code WA" class="rounded-lg shadow-sm">` : `<p class="text-[11px] text-gray-400 italic">Klik tombol untuk memuat QR Code.</p>`}
-                    </div>
-
-                    <button id="btn-request-qr" type="button" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
-                        <i class="fa-solid fa-arrows-rotate mr-1.5"></i>${qrData ? 'Perbarui QR' : 'Tampilkan QR Code'}
-                    </button>
-                </div>
-
-                <!-- 8-DIGIT PAIRING CODE -->
-                <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 flex flex-col justify-between">
-                    <div>
-                        <h4 class="font-bold text-gray-800 text-xs flex items-center gap-1.5">
-                            <i class="fa-solid fa-key text-emerald-600"></i>Kode Pairing 8 Digit
-                        </h4>
-                        <p class="text-[10px] text-gray-400 mt-0.5">Tautkan dengan nomor telepon tanpa scan kamera</p>
-                    </div>
-
-                    <div class="space-y-2">
-                        <input type="tel" id="pairing-phone" placeholder="Contoh: 085237044224" class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
-                        <button id="btn-request-pair" type="button" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
-                            Minta Kode Pairing
-                        </button>
-                    </div>
-
-                    <div id="display-pairing-code" class="hidden text-center p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
-                        <div id="pairing-code-box" class="text-2xl font-mono font-bold tracking-widest text-emerald-600">--------</div>
-                        <p class="text-[9px] text-gray-400">Masukkan 8 digit kode ini di WA HP Anda</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    document.getElementById('btn-request-qr')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btn-request-qr');
-        btn.innerText = "Meminta QR...";
-        btn.disabled = true;
-        await requestWAQr();
-        setTimeout(checkWAStatus, 1500);
-    });
-
-    document.getElementById('btn-request-pair')?.addEventListener('click', async () => {
-        const phone = document.getElementById('pairing-phone')?.value;
-        if (!phone) return window.showAlert("Perhatian", "Silakan masukkan nomor telepon terlebih dahulu.", "info");
-
-        const btn = document.getElementById('btn-request-pair');
-        btn.innerText = "Memproses...";
-        btn.disabled = true;
-
-        const code = await requestWAPairing(phone);
-        btn.innerText = "Minta Kode Pairing";
-        btn.disabled = false;
-
-        if (code) {
-            document.getElementById('pairing-code-box').innerText = code;
-            document.getElementById('display-pairing-code').classList.remove('hidden');
-            checkWAStatus();
-        } else {
-            window.showAlert("Gagal", "Gagal mendapatkan kode pairing. Pastikan nomor benar & server aktif.", "error");
-        }
-    });
 }
 
 async function disconnectWASession() {
@@ -285,7 +171,7 @@ async function disconnectWASession() {
     }
 }
 
-// 🏷️ MANAJEMEN KATALOG LAYANAN & TARIF JASA (CRUD LAYANAN)
+// 🏷️ KATALOG LAYANAN & TARIF JASA
 function appendLayananSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;
@@ -363,7 +249,7 @@ window.deleteLayananItem = function(id) {
     }
 };
 
-// 👥 DAFTAR KONTAK OPERATOR INTERNAL
+// 👥 KONTAK PENGELOLA
 function appendOperatorSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;
@@ -395,6 +281,7 @@ function appendOperatorSection() {
     parent.appendChild(container);
 }
 
+// 📲 SEKSI PAIRING & QR WA
 function appendPairingSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;
@@ -402,16 +289,104 @@ function appendPairingSection() {
     const pairingDiv = document.createElement('div');
     pairingDiv.className = "bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-w-2xl mt-6 space-y-4";
     pairingDiv.innerHTML = `
-        <h3 class="text-base font-bold text-gray-800 border-b pb-2"><i class="fa-brands fa-whatsapp text-emerald-600 mr-2"></i>Tautkan WhatsApp Biro Jasa (Sesi SPS)</h3>
-        <p class="text-xs text-gray-500 leading-relaxed">Sesi ini bersifat terisolasi tanpa potongan harian VPS. Silakan gunakan nomor HP Biro Jasa Anda untuk dikoneksikan ke gateway.</p>
-        <div id="wa-session-status-container">
-            <p class="text-xs text-gray-400 italic">Memeriksa status sesi WA...</p>
+        <div class="flex items-center justify-between border-b pb-3">
+            <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                <i class="fa-brands fa-whatsapp text-emerald-600 text-lg"></i>Tautkan WhatsApp Biro Jasa (Sesi SPS)
+            </h3>
+            <div class="flex items-center gap-2">
+                <span id="wa-status-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase">
+                    MEMERIKSA...
+                </span>
+                <button id="btn-disconnect-wa" type="button" class="hidden bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1 rounded-xl text-[11px] font-bold border border-rose-200 transition">
+                    Putuskan
+                </button>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 leading-relaxed">Sesi ini bersifat terisolasi tanpa potongan harian VPS. Gunakan salah satu opsi di bawah untuk menautkan perangkat:</p>
+        
+        <div id="wa-session-status-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            <!-- SCAN QR BARCODE -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 text-center flex flex-col justify-between">
+                <div>
+                    <h4 class="font-bold text-gray-800 text-xs flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-qrcode text-orange-600"></i>Scan QR Barcode
+                    </h4>
+                    <p class="text-[10px] text-gray-400 mt-0.5">Buka WA HP > Perangkat Tertaut > Scan</p>
+                </div>
+                
+                <div id="qr-display-box" class="my-1 flex items-center justify-center min-h-[160px] bg-white rounded-xl border p-2">
+                    <p class="text-[11px] text-gray-400 italic">Klik tombol untuk memuat QR Code.</p>
+                </div>
+
+                <button id="btn-request-qr" type="button" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+                    <i class="fa-solid fa-arrows-rotate mr-1.5"></i>Tampilkan QR Code
+                </button>
+            </div>
+
+            <!-- 8-DIGIT PAIRING CODE -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 flex flex-col justify-between">
+                <div>
+                    <h4 class="font-bold text-gray-800 text-xs flex items-center gap-1.5">
+                        <i class="fa-solid fa-key text-emerald-600"></i>Kode Pairing 8 Digit
+                    </h4>
+                    <p class="text-[10px] text-gray-400 mt-0.5">Tautkan dengan nomor HP tanpa kamera</p>
+                </div>
+
+                <div class="space-y-2">
+                    <input type="tel" id="pairing-phone" placeholder="Contoh: 085237044224" class="w-full px-3 py-2 border rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white">
+                    <button id="btn-request-pair" type="button" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+                        Minta Kode Pairing
+                    </button>
+                </div>
+
+                <div id="display-pairing-code" class="hidden text-center p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
+                    <div id="pairing-code-box" class="text-2xl font-mono font-bold tracking-widest text-emerald-600">--------</div>
+                    <p class="text-[9px] text-gray-400">Masukkan 8 digit kode ini di WA HP Anda</p>
+                </div>
+            </div>
         </div>
     `;
     parent.appendChild(pairingDiv);
+
+    document.getElementById('btn-disconnect-wa')?.addEventListener('click', disconnectWASession);
+
+    document.getElementById('btn-request-qr')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-request-qr');
+        const qrBox = document.getElementById('qr-display-box');
+        btn.innerText = "Meminta QR...";
+        btn.disabled = true;
+        if (qrBox) qrBox.innerHTML = `<p class="text-[11px] text-gray-400 italic">Menghubungkan ke VPS...</p>`;
+
+        await requestWAQr();
+        btn.disabled = false;
+        btn.innerText = "Perbarui QR Code";
+        startSmartWAPolling('fast');
+        setTimeout(checkWAStatus, 1500);
+    });
+
+    document.getElementById('btn-request-pair')?.addEventListener('click', async () => {
+        const phone = document.getElementById('pairing-phone')?.value;
+        if (!phone) return window.showAlert("Perhatian", "Silakan masukkan nomor telepon!", "info");
+
+        const btn = document.getElementById('btn-request-pair');
+        btn.innerText = "Memproses...";
+        btn.disabled = true;
+
+        const code = await requestWAPairing(phone);
+        btn.innerText = "Minta Kode Pairing";
+        btn.disabled = false;
+
+        if (code) {
+            document.getElementById('pairing-code-box').innerText = code;
+            document.getElementById('display-pairing-code').classList.remove('hidden');
+            startSmartWAPolling('fast');
+        } else {
+            window.showAlert("Gagal", "Gagal meminta kode pairing ke VPS.", "error");
+        }
+    });
 }
 
-// 🔴 AREA BAHAYA: DUA TOMBOL RESET AMAN
+// 🔴 MANAJEMEN & RESET DATA
 function appendResetDatabaseSection() {
     const parent = formConfig?.parentElement;
     if (!parent) return;
@@ -483,10 +458,7 @@ function appendResetDatabaseSection() {
                             }
                         });
 
-                        if (count > 0) {
-                            batchPromises.push(currentBatch.commit());
-                        }
-
+                        if (count > 0) batchPromises.push(currentBatch.commit());
                         await Promise.all(batchPromises);
 
                         const pSnap = await db.collection('pengeluaran').get();
@@ -496,7 +468,7 @@ function appendResetDatabaseSection() {
 
                         if (btn) { btn.disabled = false; btn.innerText = "Nol-kan Piutang & Mulai Pembukuan Baru"; }
                         if (window.showAlert) {
-                            window.showAlert("Berhasil Reset Pembukuan!", "Seluruh piutang & omset lama telah disetel ke Rp 0. Semua data berkas klien tetap aman dan sistem siap Go-Live untuk September!", "success");
+                            window.showAlert("Berhasil Reset Pembukuan!", "Seluruh piutang & omset lama telah disetel ke Rp 0. Semua data berkas klien tetap aman!", "success");
                         }
                     } catch (e) {
                         if (window.showAlert) window.showAlert("Gagal Reset", e.message, "error");
