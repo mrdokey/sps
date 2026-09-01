@@ -1,9 +1,9 @@
 import { db } from './firebase.js';
-import { initKlienController } from './controllers/klien.js?v=200';
-import { initSetelanController } from './controllers/setelan.js?v=200';
-import { initTransaksiController } from './controllers/transaksi.js?v=200';
-import { initDashboardController } from './controllers/dashboard.js?v=200';
-import { initKeuanganController } from './controllers/keuangan.js?v=200';
+import { initKlienController } from './controllers/klien.js?v=250';
+import { initSetelanController } from './controllers/setelan.js?v=250';
+import { initTransaksiController } from './controllers/transaksi.js?v=250';
+import { initDashboardController } from './controllers/dashboard.js?v=250';
+import { initKeuanganController } from './controllers/keuangan.js?v=250';
 
 export let isSidebarCollapsed = false;
 let isUserLoggedIn = false;
@@ -26,7 +26,7 @@ function cleanPhoneNumber(phone) {
     return cleaned;
 }
 
-// 🛡️ CUSTOM DIALOG
+// 🛡️ CUSTOM DIALOG MODAL
 window.showAlert = function(title, message, type = 'info') {
     const modal = document.getElementById('custom-dialog-modal');
     if (!modal) { alert(`${title}: ${message}`); return; }
@@ -34,13 +34,13 @@ window.showAlert = function(title, message, type = 'info') {
     document.getElementById('dialog-title').innerText = title;
     document.getElementById('dialog-message').innerText = message;
     const iconEl = document.getElementById('dialog-icon');
-    
+
     if (type === 'success') iconEl.className = "fa-solid fa-circle-check text-emerald-600";
     else if (type === 'error') iconEl.className = "fa-solid fa-circle-exclamation text-rose-600";
     else iconEl.className = "fa-solid fa-circle-info text-orange-600";
 
     document.getElementById('dialog-buttons').innerHTML = `
-        <button onclick="closeCustomDialog()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl text-xs transition">
+        <button onclick="closeCustomDialog()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer">
             OK, Mengerti
         </button>
     `;
@@ -56,10 +56,10 @@ window.showConfirm = function(title, message, onConfirmCallback) {
     document.getElementById('dialog-icon').className = "fa-solid fa-triangle-exclamation text-amber-500";
 
     document.getElementById('dialog-buttons').innerHTML = `
-        <button id="btn-dialog-cancel" class="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-xs hover:bg-gray-50 transition">
+        <button id="btn-dialog-cancel" class="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-xs hover:bg-gray-50 transition cursor-pointer">
             Batal
         </button>
-        <button id="btn-dialog-confirm" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-sm">
+        <button id="btn-dialog-confirm" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold py-2.5 rounded-xl text-xs transition shadow-sm cursor-pointer">
             Ya, Lanjutkan
         </button>
     `;
@@ -77,21 +77,19 @@ window.closeCustomDialog = function() {
     document.getElementById('custom-dialog-modal')?.classList.add('hidden');
 };
 
-// Injeksi Komponen HTML
+// Injeksi Komponen
 async function includeHTML() {
     const elements = document.querySelectorAll('[data-include]');
     for (const el of elements) {
         const file = el.getAttribute('data-include');
         try {
             const response = await fetch(`${file}?v=${Date.now()}`);
-            if (response.ok) {
-                el.outerHTML = await response.text();
-            }
+            if (response.ok) el.outerHTML = await response.text();
         } catch (err) {}
     }
 }
 
-// Cek Status Autentikasi
+// Cek Login
 function checkAuth() {
     let storageLogged = false;
     try {
@@ -145,23 +143,22 @@ async function handleRequestOTP(e) {
             expiresAt: expiresAt
         });
 
-        const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda adalah: *${generatedOtp}*\n\n_Berlaku 5 menit._`;
+        const messageText = `🔑 *VERIFIKASI AKSES BIRO JASA SPS*\n\nKode OTP login Anda: *${generatedOtp}*\n\n_Berlaku 5 menit._`;
         fetch(`${WA_API_SEND}?key=${WA_API_KEY}&session=${SENDER_SESSION}&to=${cleanPhone}&text=${encodeURIComponent(messageText)}`);
 
-        window.showAlert("OTP Terkirim", `Kode OTP telah dikirimkan ke WhatsApp (${cleanPhone}). Atau gunakan 999999`, "success");
+        window.showAlert("OTP Terkirim", `Kode OTP telah dikirimkan ke WhatsApp (${cleanPhone}). Anda juga dapat menggunakan 999999.`, "success");
 
         document.getElementById('area-request-otp')?.classList.add('hidden');
         document.getElementById('area-verify-otp')?.classList.remove('hidden');
         startOtpTimer(300);
     } catch (err) {
-        // Fallback jika offline
         document.getElementById('area-request-otp')?.classList.add('hidden');
         document.getElementById('area-verify-otp')?.classList.remove('hidden');
         startOtpTimer(300);
     }
 }
 
-// 🔐 Verifikasi OTP
+// 🔐 Verifikasi OTP & Master Key Bypass
 async function handleVerifyOTP(e) {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const inputOtp = document.getElementById('input-otp')?.value.trim();
@@ -170,7 +167,7 @@ async function handleVerifyOTP(e) {
 
     if (!inputOtp) return window.showAlert("Perhatian", "Masukkan 6 digit kode OTP!", "info");
 
-    // ⚡ MASTER BYPASS KODE 999999
+    // ⚡ MASTER BYPASS KODE: 999999
     if (inputOtp === "999999" || cleanPhone === "62895428400665") {
         isUserLoggedIn = true;
         try { localStorage.setItem('sps_logged_in', 'true'); sessionStorage.setItem('sps_logged_in', 'true'); } catch(e) {}
@@ -186,6 +183,7 @@ async function handleVerifyOTP(e) {
             if (String(data.code).trim() === inputOtp && Date.now() < data.expiresAt) {
                 isUserLoggedIn = true;
                 localStorage.setItem('sps_logged_in', 'true');
+                sessionStorage.setItem('sps_logged_in', 'true');
                 checkAuth();
                 switchPage('dashboard');
                 return;
@@ -233,7 +231,7 @@ function handleLogout() {
     });
 }
 
-// 🧭 Navigasi Halaman
+// 🧭 Navigasi Antar Halaman
 export function switchPage(pageId) {
     const validPages = ['dashboard', 'transaksi', 'keuangan', 'klien', 'setelan'];
     if (!validPages.includes(pageId)) pageId = 'dashboard';
@@ -254,6 +252,16 @@ export function switchPage(pageId) {
         } else {
             btn.classList.remove('bg-orange-600', 'text-white');
             btn.classList.add('text-gray-300', 'hover:bg-slate-800');
+        }
+    });
+
+    document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+        if (btn.getAttribute('data-page') === pageId) {
+            btn.classList.add('text-orange-500');
+            btn.classList.remove('text-gray-400');
+        } else {
+            btn.classList.remove('text-orange-500');
+            btn.classList.add('text-gray-400');
         }
     });
 }
@@ -278,20 +286,18 @@ function toggleSidebar() {
     }
 }
 
-// Inisialisasi Saat DOM Ready
+// Inisialisasi Saat Load
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Eksekusi Auth & Listener Tombol
     checkAuth();
+
     document.getElementById('btn-request-otp')?.addEventListener('click', handleRequestOTP);
     document.getElementById('btn-verify-otp')?.addEventListener('click', handleVerifyOTP);
     document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
     document.getElementById('btn-logout-mobile')?.addEventListener('click', handleLogout);
     document.getElementById('btn-toggle-sidebar')?.addEventListener('click', toggleSidebar);
 
-    // 2. Load Komponen HTML
     await includeHTML();
 
-    // 3. Pasang Listener Navigasi
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.getAttribute('data-page')));
     });
@@ -299,14 +305,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.addEventListener('click', () => switchPage(btn.getAttribute('data-page')));
     });
 
-    // 4. Inisialisasi Seluruh Controller
     initDashboardController();
     initTransaksiController();
     initKeuanganController();
     initKlienController();
     initSetelanController();
 
-    // Buka Halaman Sesuai Hash/Session
     let initialPage = 'dashboard';
     const hashPage = window.location.hash.replace('#', '').trim();
     const savedPage = sessionStorage.getItem('sps_active_page');
