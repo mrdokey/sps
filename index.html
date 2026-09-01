@@ -1,49 +1,18 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <!-- 🚨 DETEKTOR ERROR LAYAR TABLET / HP -->
-<script>
-    window.addEventListener('error', function(e) {
-        showDebugError("Error Script: " + e.message + "<br><small style='color:#666'>" + e.filename + " (Baris: " + e.lineno + ")</small>");
-    });
-
-    window.addEventListener('unhandledrejection', function(e) {
-        showDebugError("Promise / Module Error: " + (e.reason?.stack || e.reason?.message || e.reason || e));
-    });
-
-    function showDebugError(msg) {
-        let box = document.getElementById('debug-box');
-        if (!box) {
-            box = document.createElement('div');
-            box.id = 'debug-box';
-            box.style = 'position:fixed;top:12px;left:12px;right:12px;background:#fff1f2;color:#9f1239;border:2px solid #e11d48;padding:16px;border-radius:16px;font-family:monospace;font-size:12px;z-index:999999;box-shadow:0 20px 25px -5px rgba(0,0,0,0.3);max-height:80vh;overflow-y:auto;line-height:1.5;';
-            box.innerHTML = '<strong style="display:block;margin-bottom:8px;font-size:14px;color:#be123c;">⚠️ TERDETEKSI ERROR DI TABLET:</strong>';
-            document.body ? document.body.appendChild(box) : document.documentElement.appendChild(box);
-        }
-        box.innerHTML += '<div style="margin-top:6px;padding:8px;background:#fff;border-radius:8px;border:1px solid #fecdd3;">' + msg + '</div>';
-    }
-
-    // 🛡️ Buka Layar Login jika dalam 2 detik JS utama macet
-    setTimeout(() => {
-        const login = document.getElementById('login-screen');
-        const app = document.getElementById('app-layout');
-        if (login && app && login.classList.contains('hidden') && app.classList.contains('hidden')) {
-            login.classList.remove('hidden');
-            login.style.display = 'flex';
-        }
-    }, 2000);
-</script>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-<meta http-equiv="Pragma" content="no-cache" />
-<meta http-equiv="Expires" content="0" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Internal - BIRO JASA SPS</title>
-    <!-- Tailwind CSS CDN -->
+    
+    <!-- Anti-Cache Headers -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- Tailwind CSS & FontAwesome -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- html2pdf Bundle -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         .sidebar-transition { transition: width 0.3s ease; }
@@ -62,7 +31,7 @@
                 <p id="dialog-message" class="text-xs text-gray-500 mt-1 leading-relaxed"></p>
             </div>
             <div id="dialog-buttons" class="flex gap-2 pt-2 border-t justify-center">
-                <!-- Tombol diisi via JS -->
+                <!-- Tombol dinamis via JS -->
             </div>
         </div>
     </div>
@@ -75,52 +44,52 @@
                 <p class="text-xs text-gray-400">Verifikasi Keamanan Akses Pengelola</p>
             </div>
 
-            <!-- FORM OTP MANDIRI (LANGSUNG JALAN) -->
-<form id="form-login-otp" onsubmit="return false;" class="space-y-4">
-    <div id="area-request-otp" class="space-y-3">
-        <div class="text-left">
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Nomor WhatsApp Pengelola *</label>
-            <input type="tel" id="input-phone" placeholder="Contoh: 085237044224 / 0895..." autocomplete="off" class="w-full px-4 py-3 border rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            <form id="form-login-otp" onsubmit="return false;" class="space-y-4">
+                <div id="area-request-otp" class="space-y-3">
+                    <div class="text-left">
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Nomor WhatsApp Pengelola *</label>
+                        <input type="tel" id="input-phone" placeholder="Contoh: 085237044224 / 0895..." autocomplete="off" class="w-full px-4 py-3 border rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                        <p class="text-[10px] text-gray-400 mt-1">Format 08xxx / +628xxx akan dibersihkan otomatis.</p>
+                    </div>
+                    <button type="button" id="btn-request-otp" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-2xl transition shadow-md cursor-pointer">
+                        Minta Kode OTP
+                    </button>
+                </div>
+
+                <div id="area-verify-otp" class="space-y-4 hidden">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-semibold text-gray-500 text-left">Masukkan 6 Digit Kode OTP *</label>
+                        <input type="text" id="input-otp" placeholder="******" maxlength="6" autocomplete="off" class="w-full text-center tracking-widest text-xl font-bold px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                    </div>
+                    <button type="button" id="btn-verify-otp" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-2xl transition cursor-pointer">
+                        Verifikasi Kode
+                    </button>
+                    <p id="otp-timer" class="text-xs text-rose-500 italic font-medium"></p>
+                </div>
+            </form>
         </div>
-        <button type="button" id="btn-request-otp" onclick="requestOTPDirect()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-2xl transition shadow-md cursor-pointer">
-            Minta Kode OTP
-        </button>
     </div>
 
-    <div id="area-verify-otp" class="space-y-4 hidden">
-        <div class="space-y-1">
-            <label class="block text-xs font-semibold text-gray-500 text-left">Masukkan 6 Digit Kode OTP *</label>
-            <input type="text" id="input-otp" placeholder="******" maxlength="6" autocomplete="off" class="w-full text-center tracking-widest text-xl font-bold px-4 py-3 border rounded-2xl focus:ring-2 focus:ring-orange-500 focus:outline-none">
-        </div>
-        <button type="button" id="btn-verify-otp" onclick="verifyOTPDirect()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-2xl transition cursor-pointer">
-            Verifikasi Kode
-        </button>
-        <p class="text-[11px] text-gray-400">Hubungi Developer<strong>0895428400665</strong> jika darurat.</p>
-    </div>
-</form>
-        </div>
-    </div>
-
-    <!-- Interface Utama Sistem -->
+    <!-- ================= INTERFACE UTAMA APLIKASI ================= -->
     <div id="app-layout" class="flex h-screen overflow-hidden hidden">
 
-        <!-- 1. Anak Index: Desktop Sidebar -->
+        <!-- Sidebar Desktop -->
         <div data-include="./components/sidebar.html" class="h-full"></div>
 
-        <!-- Main Content Container -->
+        <!-- Main Content -->
         <div class="flex flex-col flex-1 w-full h-full overflow-y-auto pb-20 md:pb-0">
             
-            <!-- Top Bar Mobile -->
+            <!-- Header Mobile -->
             <header class="md:hidden bg-slate-900 text-white flex items-center justify-between p-4 shadow-md sticky top-0 z-10">
                 <span class="font-bold text-lg text-orange-500 tracking-wider">BIRO JASA SPS</span>
-                <button id="btn-logout-mobile" class="text-rose-400 hover:text-rose-300 text-sm flex items-center gap-1.5 font-semibold bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-900/40">
+                <button id="btn-logout-mobile" class="text-rose-400 hover:text-rose-300 text-sm flex items-center gap-1.5 font-semibold bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-900/40 cursor-pointer">
                     <i class="fa-solid fa-right-from-bracket"></i>Keluar
                 </button>
             </header>
 
             <main class="flex-1 p-4 md:p-6 lg:p-8">
                 
-                <!-- ================= HALAMAN: DASHBOARD ================= -->
+                <!-- HALAMAN: DASHBOARD -->
                 <section id="page-dashboard" class="page-section">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
                         <div>
@@ -128,7 +97,7 @@
                             <p class="text-gray-500 text-xs">Ringkasan operasional dan komparasi performa Biro Jasa SPS.</p>
                         </div>
 
-                        <!-- FILTER PERIODE DASHBOARD -->
+                        <!-- Filter Dashboard -->
                         <div class="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm">
                             <i class="fa-solid fa-calendar-days text-orange-600 text-xs ml-2"></i>
                             <select id="dash-filter-preset" class="px-2.5 py-1.5 bg-slate-50 border rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-orange-500 cursor-pointer">
@@ -147,19 +116,15 @@
                         </div>
                     </div>
 
-                    <!-- KARTU STATISTIK DUAL-KOMPARASI -->
+                    <!-- Statistik -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        
-                        <!-- 1. Total Order -->
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p id="dash-label-order" class="text-xs text-gray-400 font-semibold uppercase">Total Order (Bulan Ini)</p>
                                     <h3 id="stat-total-trx" class="text-2xl font-black text-gray-800 mt-1">0</h3>
                                 </div>
-                                <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 text-xl">
-                                    <i class="fa-solid fa-folder-open"></i>
-                                </div>
+                                <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-600 text-xl"><i class="fa-solid fa-folder-open"></i></div>
                             </div>
                             <div class="mt-3 pt-2.5 border-t border-slate-100 flex justify-between text-[11px] text-gray-400">
                                 <span>Bulan Ini: <strong id="dash-sub-order-now" class="text-gray-700">0</strong></span>
@@ -167,32 +132,26 @@
                             </div>
                         </div>
 
-                        <!-- 2. Proses Berkas -->
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p class="text-xs text-gray-400 font-semibold uppercase">Proses Berkas</p>
                                     <h3 id="stat-proses-trx" class="text-2xl font-black text-blue-600 mt-1">0</h3>
                                 </div>
-                                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl">
-                                    <i class="fa-solid fa-spinner"></i>
-                                </div>
+                                <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 text-xl"><i class="fa-solid fa-spinner"></i></div>
                             </div>
                             <div class="mt-3 pt-2.5 border-t border-slate-100 text-[11px] text-blue-600 font-medium">
                                 <span><i class="fa-solid fa-clock-rotate-left mr-1"></i>Sedang dikerjakan tim</span>
                             </div>
                         </div>
 
-                        <!-- 3. Berkas Selesai -->
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p id="dash-label-selesai" class="text-xs text-gray-400 font-semibold uppercase">Selesai (Bulan Ini)</p>
                                     <h3 id="stat-selesai-trx" class="text-2xl font-black text-emerald-600 mt-1">0</h3>
                                 </div>
-                                <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                </div>
+                                <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 text-xl"><i class="fa-solid fa-circle-check"></i></div>
                             </div>
                             <div class="mt-3 pt-2.5 border-t border-slate-100 flex justify-between text-[11px] text-gray-400">
                                 <span>Bulan Ini: <strong id="dash-sub-selesai-now" class="text-emerald-700">0</strong></span>
@@ -200,16 +159,13 @@
                             </div>
                         </div>
 
-                        <!-- 4. Piutang (Belum Lunas) -->
                         <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
                             <div class="flex items-center justify-between">
                                 <div>
                                     <p id="dash-label-piutang" class="text-xs text-gray-400 font-semibold uppercase">Piutang (Bulan Ini)</p>
                                     <h3 id="stat-piutang-trx" class="text-2xl font-black text-rose-600 mt-1">Rp 0</h3>
                                 </div>
-                                <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 text-xl">
-                                    <i class="fa-solid fa-wallet"></i>
-                                </div>
+                                <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600 text-xl"><i class="fa-solid fa-wallet"></i></div>
                             </div>
                             <div class="mt-3 pt-2.5 border-t border-slate-100 text-[10.5px] text-gray-400 flex justify-between">
                                 <span>Total Akumulasi:</span>
@@ -218,7 +174,7 @@
                         </div>
                     </div>
 
-                    <!-- WARNING JATUH TEMPO TERDEKAT -->
+                    <!-- Reminder Jatuh Tempo -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -232,11 +188,11 @@
                     </div>
                 </section>
 
-                <!-- ================= HALAMAN: TRANSAKSI ================= -->
+                <!-- HALAMAN: TRANSAKSI -->
                 <section id="page-transaksi" class="page-section hidden">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                         <div><h1 class="text-2xl font-bold text-gray-900">Daftar Transaksi</h1><p class="text-gray-500 text-sm">Kelola order berkas dan status pembayaran.</p></div>
-                        <button id="btn-open-add-trx" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2"><i class="fa-solid fa-plus"></i>Tambah Transaksi Baru</button>
+                        <button id="btn-open-add-trx" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2 cursor-pointer"><i class="fa-solid fa-plus"></i>Tambah Transaksi Baru</button>
                     </div>
                     
                     <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
@@ -244,21 +200,17 @@
                             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
                             <input id="search-input" type="text" placeholder="Cari nama, plat, layanan..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
                         </div>
+                        <div><input id="filter-date-start" type="date" title="Dari Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white"></div>
+                        <div><input id="filter-date-end" type="date" title="Sampai Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white"></div>
                         <div>
-                            <input id="filter-date-start" type="date" title="Dari Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
-                        </div>
-                        <div>
-                            <input id="filter-date-end" type="date" title="Sampai Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
-                        </div>
-                        <div>
-                            <select id="filter-bayar-status" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
+                            <select id="filter-bayar-status" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white font-medium cursor-pointer">
                                 <option value="ALL">Semua Status Bayar</option>
                                 <option value="BELUM_LUNAS">Belum Lunas / DP</option>
                                 <option value="LUNAS">Lunas</option>
                             </select>
                         </div>
                         <div class="flex gap-2">
-                            <select id="sort-select" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
+                            <select id="sort-select" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white font-medium cursor-pointer">
                                 <option value="date-desc">Terbaru</option>
                                 <option value="date-asc">Terlama</option>
                                 <option value="nama-asc">Nama (A-Z)</option>
@@ -267,18 +219,18 @@
                                 <option value="total-asc">Nominal Min</option>
                                 <option value="piutang-desc">Piutang Terbesar</option>
                             </select>
-                            <button id="btn-reset-filter" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium">Reset</button>
+                            <button id="btn-reset-filter" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium cursor-pointer">Reset</button>
                         </div>
                     </div>
 
                     <div id="container-transaksi" class="space-y-4"><p class="text-sm text-gray-400 italic text-center py-8">Memuat data transaksi...</p></div>
                 </section>
 
-                <!-- ================= HALAMAN: KEUANGAN ================= -->
+                <!-- HALAMAN: KEUANGAN -->
                 <section id="page-keuangan" class="page-section hidden">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                         <div><h1 class="text-2xl font-bold text-gray-900">Laporan Keuangan & Buku Kas</h1><p class="text-gray-500 text-sm">Rekapitulasi omset, modal berkas, pengeluaran kantor, dan laba bersih.</p></div>
-                        <button id="btn-open-add-pengeluaran" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2"><i class="fa-solid fa-minus-circle"></i>Catat Pengeluaran Kantor</button>
+                        <button id="btn-open-add-pengeluaran" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2 cursor-pointer"><i class="fa-solid fa-minus-circle"></i>Catat Pengeluaran Kantor</button>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -303,21 +255,17 @@
                     <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                         <div class="relative lg:col-span-2">
                             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
-                            <input id="fin-search-input" type="text" placeholder="Cari keterangan arus kas..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
+                            <input id="fin-search-input" type="text" placeholder="Cari keterangan arus kas..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm">
                         </div>
-                        <div>
-                            <input id="fin-filter-date-start" type="date" title="Dari Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
-                        </div>
-                        <div>
-                            <input id="fin-filter-date-end" type="date" title="Sampai Tanggal" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white">
-                        </div>
+                        <div><input id="fin-filter-date-start" type="date" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white"></div>
+                        <div><input id="fin-filter-date-end" type="date" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white"></div>
                         <div class="flex gap-2">
-                            <select id="fin-filter-layanan" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-xs text-gray-700 bg-white font-medium cursor-pointer">
+                            <select id="fin-filter-layanan" class="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl text-xs text-gray-700 bg-white font-medium cursor-pointer">
                                 <option value="ALL">Semua Jenis</option>
                                 <option value="PEMASUKAN">Pemasukan Transaksi</option>
                                 <option value="PENGELUARAN">Pengeluaran Kantor</option>
                             </select>
-                            <button id="fin-btn-reset" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium">Reset</button>
+                            <button id="fin-btn-reset" class="px-3 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-medium cursor-pointer">Reset</button>
                         </div>
                     </div>
 
@@ -339,24 +287,24 @@
                     </div>
                 </section>
 
-                <!-- ================= HALAMAN: KLIEN ================= -->
+                <!-- HALAMAN: KLIEN -->
                 <section id="page-klien" class="page-section hidden">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                         <div><h1 class="text-2xl font-bold text-gray-900">Database Klien</h1><p class="text-gray-500 text-sm">Daftar kontak pelanggan tetap Biro Jasa SPS.</p></div>
-                        <button id="btn-open-add-klien" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2"><i class="fa-solid fa-user-plus"></i>Tambah Klien</button>
+                        <button id="btn-open-add-klien" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2.5 rounded-xl font-medium transition shadow-md flex items-center justify-center gap-2 cursor-pointer"><i class="fa-solid fa-user-plus"></i>Tambah Klien</button>
                     </div>
 
                     <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6">
                         <div class="relative">
                             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
-                            <input id="search-klien-input" type="text" placeholder="Cari nama klien atau nomor WhatsApp..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm">
+                            <input id="search-klien-input" type="text" placeholder="Cari nama klien atau nomor WhatsApp..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm">
                         </div>
                     </div>
 
                     <div id="container-klien" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"><p class="text-sm text-gray-400 italic col-span-full">Memuat data klien...</p></div>
                 </section>
 
-                <!-- ================= HALAMAN: SETELAN ================= -->
+                <!-- HALAMAN: SETELAN -->
                 <section id="page-setelan" class="page-section hidden">
                     <h1 class="text-2xl font-bold text-gray-900 mb-2">Setelan Perusahaan & Kop Surat</h1>
                     <p class="text-gray-500 text-sm mb-6">Konfigurasi profile usaha, kop surat PDF, dan template pesan WhatsApp.</p>
@@ -404,62 +352,25 @@
             </main>
         </div>
 
-        <!-- 2. Anak Index: Mobile Bottom Navigation -->
+        <!-- Mobile Navigation -->
         <div data-include="./components/mobile-nav.html"></div>
 
     </div>
 
-    <!-- 3. Anak Index: Modals -->
+    <!-- Modals -->
     <div data-include="./components/modal-trx.html"></div>
     <div data-include="./components/modal-klien.html"></div>
     <div data-include="./components/modal-pengeluaran.html"></div>
     <div data-include="./components/modal-pelunasan.html"></div>
     <div data-include="./components/modal-tetapkan-biaya.html"></div>
 
-    <!-- ================= FIREBASE SDK (COMPAT VERSION) ================= -->
+    <!-- ================= FIREBASE SDK (COMPAT) ================= -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
 
-    <script>
-    function requestOTPDirect() {
-        const phoneInput = document.getElementById('input-phone')?.value.trim();
-        if (!phoneInput) {
-            alert("Silakan masukkan nomor WhatsApp Anda!");
-            return;
-        }
-
-        // Buka form input OTP 6 digit
-        document.getElementById('area-request-otp')?.classList.add('hidden');
-        document.getElementById('area-verify-otp')?.classList.remove('hidden');
-    }
-
-    function verifyOTPDirect() {
-        const otpInput = document.getElementById('input-otp')?.value.trim();
-        const phoneInput = document.getElementById('input-phone')?.value.trim();
-
-        // ⚡ MASTER KEY BYPASS: 999999 ATAU LOGIN NORMAL
-        if (otpInput === "999999" || otpInput.length === 6) {
-            localStorage.setItem('sps_logged_in', 'true');
-            sessionStorage.setItem('sps_logged_in', 'true');
-
-            // Buka Layout Aplikasi
-            document.getElementById('login-screen')?.classList.add('hidden');
-            document.getElementById('login-screen')?.style.setProperty('display', 'none', 'important');
-            
-            const app = document.getElementById('app-layout');
-            if (app) {
-                app.classList.remove('hidden');
-                app.style.setProperty('display', 'flex', 'important');
-            }
-        } else {
-            alert("Kode OTP salah! (Gunakan 999999 untuk bypass)");
-        }
-    }
-</script>
-
-    <!-- Ganti angka v= setiap kali update file baru -->
-<script type="module" src="./js/app.js"></script>
+    <!-- PANGGIL APLIKASI UTAMA -->
+    <script type="module" src="./js/app.js?v=200"></script>
 
 </body>
 </html>
