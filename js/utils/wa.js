@@ -65,3 +65,19 @@ export async function requestWAPairing(phone) {
         return null;
     }
 }
+
+// Cek status koneksi sesi WA
+export async function checkWAStatus() {
+    try {
+        const url = `${API_BASE}/status/${SESSION_ID}?key=${API_KEY}&_t=${Date.now()}`;
+        const response = await fetch(url, { cache: 'no-store' });
+        if (response.ok) {
+            const data = await response.json();
+            // Sesuaikan properti status dari API Anda (misal: data.status / data.state)
+            return data.status || data.state || 'DISCONNECTED';
+        }
+        return 'DISCONNECTED';
+    } catch (err) {
+        return 'DISCONNECTED';
+    }
+}

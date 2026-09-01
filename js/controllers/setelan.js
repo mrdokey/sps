@@ -87,6 +87,8 @@ async function saveConfig(e) {
 }
 
 // 📡 CEK STATUS SESI WA (NO-CACHE FETCH)
+let lastWAState = ''; // Simpan state terakhir agar tidak re-render terus-menerus
+
 async function checkWAStatus() {
     const container = document.getElementById('wa-session-status-container');
     if (!container) return;
@@ -99,12 +101,24 @@ async function checkWAStatus() {
         if (response.ok) {
             const data = await response.json();
             const rawStatus = String(data.status || 'DISCONNECTED').toUpperCase().trim();
-            renderWASessionUI(rawStatus, data.qr || null);
+            const currentStateKey = `${rawStatus}_${data.qr || ''}`;
+
+            // HANYA RENDER JIKA ADA PERUBAHAN STATUS / QR BARU
+            if (lastWAState !== currentStateKey) {
+                lastWAState = currentStateKey;
+                renderWASessionUI(rawStatus, data.qr || null);
+            }
         } else {
-            renderWASessionUI('DISCONNECTED', null);
+            if (lastWAState !== 'DISCONNECTED') {
+                lastWAState = 'DISCONNECTED';
+                renderWASessionUI('DISCONNECTED', null);
+            }
         }
     } catch (e) {
-        renderWASessionUI('DISCONNECTED', null);
+        if (lastWAState !== 'DISCONNECTED') {
+            lastWAState = 'DISCONNECTED';
+            renderWASessionUI('DISCONNECTED', null);
+        }
     }
 }
 
