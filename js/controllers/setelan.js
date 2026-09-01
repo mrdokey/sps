@@ -1,5 +1,5 @@
 import { db } from '../firebase.js';
-import { requestWAPairing, requestWAQr } from '../utils/wa.js';
+import { requestWAPairing, requestWAQr } from '../wa.js';
 
 let formConfig;
 const API_BASE = "https://wa.mrdsolution.my.id/api";
