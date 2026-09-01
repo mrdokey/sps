@@ -1,8 +1,8 @@
 import { db } from './firebase.js';
 import { initKlienController } from './controllers/klien.js';
-import { initSetelanController } from './controllers/setelan.js?v=112';
-import { initTransaksiController } from './controllers/transaksi.js?v=112';
-import { initDashboardController } from './controllers/dashboard.js?v=112';
+import { initSetelanController } from './controllers/setelan.js';
+import { initTransaksiController } from './controllers/transaksi.js';
+import { initDashboardController } from './controllers/dashboard.js';
 import { initKeuanganController } from './controllers/keuangan.js';
 
 
