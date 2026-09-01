@@ -255,6 +255,9 @@ async function handleVerifyOTP(e) {
         return;
     }
 
+    window.handleRequestOTP = handleRequestOTP;
+window.handleVerifyOTP = handleVerifyOTP;
+
     try {
         const doc = await db.collection('login_otp').doc('sps_owner').get();
         if (doc.exists) {
@@ -404,24 +407,24 @@ function toggleSidebar() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await includeHTML();
-
+    // 1. Eksekusi Login & Tombol Paling Pertama (Jangan Tunggu Async/FCM)
     checkAuth();
-
-    initFCM();
-
     document.getElementById('btn-request-otp')?.addEventListener('click', handleRequestOTP);
     document.getElementById('btn-verify-otp')?.addEventListener('click', handleVerifyOTP);
 
-    document.getElementById('btn-logout-desktop')?.addEventListener('click', handleLogout);
-    document.getElementById('btn-logout-mobile')?.addEventListener('click', handleLogout);
+    // 2. Load Komponen HTML
+    await includeHTML();
 
+    // 3. Init FCM secara silent (tidak boleh memblokir UI)
+    try { initFCM(); } catch(e) {}
+
+    // 4. Init Controller Lainnya
     initDashboardController();
     initTransaksiController();
     initKeuanganController();
     initKlienController();
     initSetelanController();
-
+    
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.getAttribute('data-page')));
     });
