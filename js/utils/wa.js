@@ -24,22 +24,44 @@ export async function sendWA(to, text) {
     }
 }
 
-// Request Pairing Code Baru via No HP (Sesi SPS)
+// Request QR Code Baru (Anti-Cache)
+export async function requestWAQr() {
+    try {
+        const url = `${API_BASE}/request-qr/${SESSION_ID}?_t=${Date.now()}`;
+        const response = await fetch(url, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            return data.success || false;
+        }
+        return false;
+    } catch (err) {
+        console.error("Gagal meminta QR code:", err.message);
+        return false;
+    }
+}
+
+// Request Pairing Code (Anti-Cache)
 export async function requestWAPairing(phone) {
     try {
         let formattedPhone = phone.replace(/\D/g, "");
         if (formattedPhone.startsWith("0")) formattedPhone = "62" + formattedPhone.substring(1);
         if (formattedPhone.startsWith("8")) formattedPhone = "62" + formattedPhone;
 
-        const url = `${API_BASE}/request-pairing/${SESSION_ID}?phone=${formattedPhone}`;
-        const response = await fetch(url);
+        const url = `${API_BASE}/request-pairing/${SESSION_ID}?phone=${formattedPhone}&_t=${Date.now()}`;
+        const response = await fetch(url, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         if (response.ok) {
             const data = await response.json();
-            return data.code || null; // Mengembalikan 8-digit pairing code
+            return data.code || null;
         }
         return null;
     } catch (err) {
-        console.error("Gagal meminta pairing code dari VPS:", err.message);
+        console.error("Gagal meminta pairing code:", err.message);
         return null;
     }
 }
